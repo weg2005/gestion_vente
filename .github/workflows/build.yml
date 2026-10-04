@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Recuperer le projet
         uses: actions/checkout@v4
 
@@ -30,6 +31,27 @@ jobs:
             zlib1g-dev libncurses5-dev libncursesw5-dev \
             cmake libffi-dev libssl-dev automake
 
+      - name: Configurer Android SDK
+        run: |
+          echo "ANDROIDSDK=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
+
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/build-tools/35.0.0" >> $GITHUB_PATH
+
+      - name: Verifier AIDL
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          find "$ANDROID_HOME" -name aidl -type f
+          aidl --version
+
       - name: Installer Buildozer
         run: |
           python -m pip install --upgrade pip
@@ -40,6 +62,10 @@ jobs:
         run: |
           mkdir projet
           unzip sql_stock.zip -d projet
+
+      - name: Afficher le projet
+        run: |
+          find projet -maxdepth 2 -type f
 
       - name: Creer buildozer.spec
         working-directory: projet
@@ -55,11 +81,6 @@ jobs:
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
           sed -i 's/^requirements = .*/requirements = python3,kivy/' buildozer.spec
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
-
-      - name: Accepter les licences Android
-        run: |
-          mkdir -p "$HOME/.buildozer/android/platform"
-          yes | sdkmanager --licenses || true
 
       - name: Compiler APK
         working-directory: projet
