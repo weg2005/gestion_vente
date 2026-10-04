@@ -22,10 +22,13 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Installer les outils
+      - name: Installer les outils Linux
         run: |
           sudo apt-get update
-          sudo apt-get install -y git zip unzip autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake libffi-dev libssl-dev automake
+          sudo apt-get install -y \
+            git zip unzip autoconf libtool pkg-config \
+            zlib1g-dev libncurses5-dev libncursesw5-dev \
+            cmake libffi-dev libssl-dev automake
 
       - name: Installer Buildozer
         run: |
@@ -37,10 +40,6 @@ jobs:
         run: |
           mkdir projet
           unzip sql_stock.zip -d projet
-
-      - name: Afficher le contenu
-        run: |
-          find projet -maxdepth 2 -type f
 
       - name: Creer buildozer.spec
         working-directory: projet
@@ -57,7 +56,12 @@ jobs:
           sed -i 's/^requirements = .*/requirements = python3,kivy/' buildozer.spec
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
 
-      - name: Compiler
+      - name: Accepter les licences Android
+        run: |
+          mkdir -p "$HOME/.buildozer/android/platform"
+          yes | sdkmanager --licenses || true
+
+      - name: Compiler APK
         working-directory: projet
         run: |
           buildozer -v android debug
