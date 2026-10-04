@@ -58,22 +58,29 @@ jobs:
 
       - name: Verifier Android SDK
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "===== ANDROID HOME ====="
+          echo "$ANDROID_HOME"
 
-          echo "===== AIDL DISPONIBLES ====="
-          find "$ANDROID_HOME" -name aidl -type f
-
+          echo ""
           echo "===== PLATEFORMES ANDROID ====="
-          ls -la "$ANDROID_HOME/platforms"
+          find "$ANDROID_HOME/platforms" -maxdepth 1 -type d -print
 
+          echo ""
+          echo "===== AIDL ====="
+          find "$ANDROID_HOME" -name aidl -type f -print
+
+          echo ""
           echo "===== BUILD TOOLS ====="
-          ls -la "$ANDROID_HOME/build-tools"
+          find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d -print
 
       - name: Installer Buildozer
         run: |
           python -m pip install --upgrade pip
           pip install buildozer
           pip install "cython==0.29.34"
+
+          echo "===== BUILDOZER ====="
+          buildozer --version
 
       - name: Decompresser le projet
         run: |
@@ -108,28 +115,28 @@ jobs:
 
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
 
-          # CORRECTION IMPORTANTE :
-          # Remplacer l'API 33 créée par buildozer init
-          # par l'API 35 installée dans le SDK.
-
+          # API Android
           if grep -q '^android.api =' buildozer.spec; then
             sed -i 's/^android.api = .*/android.api = 35/' buildozer.spec
           else
             echo "android.api = 35" >> buildozer.spec
           fi
 
+          # API minimale
           if grep -q '^android.minapi =' buildozer.spec; then
             sed -i 's/^android.minapi = .*/android.minapi = 24/' buildozer.spec
           else
             echo "android.minapi = 24" >> buildozer.spec
           fi
 
+          # Chemin SDK
           if grep -q '^android.sdk_path =' buildozer.spec; then
             sed -i "s|^android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
           else
             echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
           fi
 
+          # Niveau de log
           if grep -q '^log_level =' buildozer.spec; then
             sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
           else
@@ -137,14 +144,11 @@ jobs:
           fi
 
           echo ""
-          echo "===== VERIFICATION API ====="
-          grep -n "android.api" buildozer.spec
-          grep -n "android.minapi" buildozer.spec
-          grep -n "android.sdk_path" buildozer.spec
-          grep -n "log_level" buildozer.spec
+          echo "===== PARAMETRES ANDROID ====="
+          grep -nE "android.api|android.minapi|android.sdk_path|log_level" buildozer.spec
 
           echo ""
-          echo "===== BUILDOZER.SPEC COMPLET ====="
+          echo "===== BUILDOZER.SPEC ====="
           cat buildozer.spec
 
       - name: Preparer le SDK Buildozer
@@ -156,8 +160,6 @@ jobs:
           mkdir -p "$SDK"
           mkdir -p "$SDK/tools/bin"
 
-          echo "===== CREATION DES LIENS SDKMANAGER ====="
-
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "$SDK/tools/bin/sdkmanager"
@@ -166,18 +168,19 @@ jobs:
             "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" \
             "$SDK/tools/bin/avdmanager"
 
-          echo "===== VERIFICATION SDKMANAGER ====="
-
-          ls -l "$SDK/tools/bin/sdkmanager"
+          echo ""
+          echo "===== SDKMANAGER ====="
 
           "$SDK/tools/bin/sdkmanager" --version
 
-          echo "===== ACCEPTATION DES LICENCES ====="
+          echo ""
+          echo "===== LICENCES ====="
 
           yes | "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
             --licenses || true
 
+          echo ""
           echo "===== INSTALLATION API 35 ====="
 
           "$SDK/tools/bin/sdkmanager" \
@@ -186,27 +189,56 @@ jobs:
             "platforms;android-35" \
             "build-tools;37.0.0"
 
-          echo "===== VERIFICATION API 35 ====="
+          echo ""
+          echo "===== PLATEFORMES DU SDK BUILDOZER ====="
 
-          ls -la "$SDK/platforms"
+          find "$SDK/platforms" -maxdepth 1 -type d -print
 
-          echo "===== VERIFICATION BUILD TOOLS ====="
+          echo ""
+          echo "===== BUILD TOOLS ====="
 
-          ls -la "$SDK/build-tools/37.0.0"
+          find "$SDK/build-tools" -maxdepth 1 -type d -print
 
-          echo "===== VERIFICATION AIDL ====="
+      - name: Verifier configuration avant compilation
+        working-directory: projet
+        run: |
 
-          find "$SDK" -name aidl -type f -print
+          echo "========================================"
+          echo " VERIFICATION AVANT COMPILATION"
+          echo "========================================"
+
+          echo ""
+          echo "===== PARAMETRES ANDROID ====="
+
+          grep -nE "android.api|android.minapi|android.sdk_path|android.ndk" buildozer.spec || true
+
+          echo ""
+          echo "===== RECHERCHE DE API 33 ====="
+
+          grep -RniE \
+            "android\.api.*33|api.*33|API.*33" \
+            . \
+            --exclude-dir=.git \
+            --exclude-dir=.buildozer \
+            --exclude="*.pyc" \
+            || true
+
+          echo ""
+          echo "===== VERSION BUILDOZER ====="
+
+          buildozer --version
 
       - name: Compiler APK
         working-directory: projet
         run: |
+
           echo "========================================"
           echo "        DEBUT COMPILATION APK"
           echo "========================================"
 
           echo ""
           echo "===== API CONFIGUREE ====="
+
           grep -n "android.api" buildozer.spec
 
           echo ""
@@ -216,6 +248,7 @@ jobs:
 
       - name: Chercher APK
         run: |
+
           echo "========================================"
           echo "          RECHERCHE DES APK"
           echo "========================================"
@@ -223,7 +256,7 @@ jobs:
           find . -type f -name "*.apk" -print
 
           echo ""
-          echo "===== CONTENU DE PROJET/BIN ====="
+          echo "===== CONTENU PROJET/BIN ====="
 
           ls -lah projet/bin/ || true
 
