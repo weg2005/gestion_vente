@@ -217,9 +217,7 @@ jobs:
             buildozer.spec
 
 
-          # ------------------------------------------------------
-          # API ANDROID
-          # ------------------------------------------------------
+          # API Android
 
           if grep -q '^android.api =' buildozer.spec; then
             sed -i \
@@ -230,9 +228,7 @@ jobs:
           fi
 
 
-          # ------------------------------------------------------
-          # MIN API
-          # ------------------------------------------------------
+          # Minimum Android API
 
           if grep -q '^android.minapi =' buildozer.spec; then
             sed -i \
@@ -243,9 +239,7 @@ jobs:
           fi
 
 
-          # ------------------------------------------------------
-          # SDK PATH
-          # ------------------------------------------------------
+          # SDK
 
           if grep -q '^android.sdk_path =' buildozer.spec; then
             sed -i \
@@ -256,9 +250,7 @@ jobs:
           fi
 
 
-          # ------------------------------------------------------
           # NDK
-          # ------------------------------------------------------
 
           if grep -q '^android.ndk =' buildozer.spec; then
             sed -i \
@@ -269,9 +261,7 @@ jobs:
           fi
 
 
-          # ------------------------------------------------------
-          # PYTHON-FOR-ANDROID
-          # ------------------------------------------------------
+          # Python-for-Android
 
           if grep -q '^p4a.branch =' buildozer.spec; then
             sed -i \
@@ -291,9 +281,7 @@ jobs:
           fi
 
 
-          # ------------------------------------------------------
-          # LOG
-          # ------------------------------------------------------
+          # Niveau de log
 
           if grep -q '^log_level =' buildozer.spec; then
             sed -i \
@@ -326,13 +314,10 @@ jobs:
           SDK="$HOME/.buildozer/android/platform/android-sdk"
 
           mkdir -p "$SDK"
-
           mkdir -p "$SDK/tools/bin"
 
 
-          # ------------------------------------------------------
-          # CREER LES ANCIENS CHEMINS ATTENDUS PAR BUILDOZER
-          # ------------------------------------------------------
+          # Ancien chemin attendu par Buildozer
 
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
@@ -366,7 +351,7 @@ jobs:
             "build-tools;37.0.0"
 
 
-          echo "===== PLATEFORMES BUILDOZER ====="
+          echo "===== PLATEFORMES ====="
 
           find "$SDK/platforms" \
             -maxdepth 1 \
@@ -374,7 +359,7 @@ jobs:
             -print
 
 
-          echo "===== BUILD TOOLS BUILDOZER ====="
+          echo "===== BUILD TOOLS ====="
 
           find "$SDK/build-tools" \
             -maxdepth 1 \
@@ -389,7 +374,6 @@ jobs:
         working-directory: projet
         run: |
           rm -rf .buildozer
-
           rm -rf bin
 
 
@@ -413,102 +397,89 @@ jobs:
 
 
       # ==========================================================
-      # 17. RECHERCHER CHARSET_NORMALIZER
+      # 17. INITIALISER P4A ET DIAGNOSTIQUER CHARSET
       # ==========================================================
-      - name: Rechercher toutes les references a charset_normalizer
+      - name: Initialiser Buildozer et rechercher charset_normalizer
         working-directory: projet
+        env:
+          ACLOCAL_PATH: /usr/share/aclocal:/usr/share/libtool/m4
+          LIBTOOLIZE: libtoolize
         run: |
 
-          echo ""
           echo "=========================================================="
-          echo " RECHERCHE AUTOMATIQUE CHARSET_NORMALIZER"
-          echo "=========================================================="
-
-          echo ""
-          echo "=========================================================="
-          echo "1. RECHERCHE DANS LE PROJET"
+          echo "INITIALISATION PYTHON-FOR-ANDROID"
           echo "=========================================================="
 
-          grep -RniE \
-            --exclude-dir=.git \
-            --exclude-dir=bin \
-            --exclude-dir=.buildozer \
-            "charset[_-]normalizer" \
-            . \
-            2>/dev/null \
-            || echo "Aucune reference dans le projet."
+          # Buildozer commence la préparation de l'environnement.
+          # Une erreur éventuelle est volontairement ignorée afin
+          # de pouvoir inspecter les fichiers créés.
+
+          buildozer android debug || true
 
 
           echo ""
           echo "=========================================================="
-          echo "2. RECHERCHE DANS PYTHON-FOR-ANDROID"
+          echo "RECHERCHE APRES INITIALISATION"
+          echo "=========================================================="
+
+
+          echo ""
+          echo "=========================================================="
+          echo "1. PYTHON-FOR-ANDROID"
           echo "=========================================================="
 
           P4A="$HOME/.buildozer/android/platform/python-for-android"
 
           if [ -d "$P4A" ]; then
 
-            echo "Python-for-Android trouve :"
+            echo "P4A trouve :"
             echo "$P4A"
 
             echo ""
+            echo "References charset :"
 
             grep -RniE \
               "charset[_-]normalizer" \
               "$P4A" \
               2>/dev/null \
-              || echo "Aucune reference dans python-for-android."
+              || echo "Aucune reference trouvee."
 
           else
 
-            echo "python-for-android n'est pas encore present."
+            echo "P4A introuvable."
 
           fi
 
 
           echo ""
           echo "=========================================================="
-          echo "3. RECHERCHE DANS L'ENVIRONNEMENT BUILD"
+          echo "2. RECETTES P4A"
           echo "=========================================================="
 
-          BUILD="$HOME/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a"
-
-          if [ -d "$BUILD" ]; then
-
-            echo "Repertoire trouve :"
-            echo "$BUILD"
-
-            echo ""
+          if [ -d "$P4A/pythonforandroid/recipes" ]; then
 
             grep -RniE \
               "charset[_-]normalizer" \
-              "$BUILD" \
+              "$P4A/pythonforandroid/recipes" \
               2>/dev/null \
-              || echo "Aucune reference dans l'environnement de build."
-
-          else
-
-            echo "Le repertoire de build n'existe pas encore."
+              || echo "Aucune reference dans les recettes."
 
           fi
 
 
           echo ""
           echo "=========================================================="
-          echo "4. RECHERCHE DES FICHIERS REQUIREMENTS"
+          echo "3. REQUIREMENTS P4A"
           echo "=========================================================="
 
-          find \
-            "$HOME/.buildozer" \
-            projet \
+          find "$P4A" \
             -type f \
-            \
-              -name "*.txt" \
-              -o -name "*.py" \
+            \( \
+              -name "requirements.txt" \
+              -o -name "requirements*.txt" \
               -o -name "*.recipe" \
-              -o -name "requirements*" \
-              -o -name "buildozer.spec" \
-            \
+              -o -name "*.py" \
+            \) \
             -print \
             2>/dev/null \
           | while read fichier
@@ -537,36 +508,54 @@ jobs:
 
           echo ""
           echo "=========================================================="
-          echo "5. RECHERCHE DANS LES METADONNEES PIP"
+          echo "4. TOUTES LES REFERENCES DANS .BUILDOZER"
           echo "=========================================================="
 
-          python -m pip list \
+          find "$HOME/.buildozer" \
+            -type f \
             2>/dev/null \
-            | grep -iE \
-              "charset|normalizer" \
-            || true
+          | while read fichier
+            do
+
+              if grep -qiE \
+                "charset[_-]normalizer" \
+                "$fichier" \
+                2>/dev/null
+              then
+
+                echo ""
+                echo "--------------------------------------------------"
+                echo "FICHIER : $fichier"
+                echo "--------------------------------------------------"
+
+                grep -niE \
+                  "charset[_-]normalizer" \
+                  "$fichier" \
+                  2>/dev/null
+
+              fi
+
+            done
 
 
           echo ""
           echo "=========================================================="
-          echo "6. RECHERCHE DES WHEELS CHARSET"
+          echo "5. WHEELS GENERES"
           echo "=========================================================="
 
-          find \
-            "$HOME/.buildozer" \
+          find "$HOME/.buildozer" \
             -type f \
-            \
+            \( \
               -iname "*charset*" \
               -o -iname "*normalizer*" \
-            \
+            \) \
             -print \
-            2>/dev/null \
-            | head -200
+            2>/dev/null
 
 
           echo ""
           echo "=========================================================="
-          echo " FIN DE LA RECHERCHE"
+          echo "FIN DU DIAGNOSTIC"
           echo "=========================================================="
 
 
@@ -658,4 +647,4 @@ jobs:
           name: gestion-vente-apk
           path: |
             projet/bin/*.apk
-         
+          if-no-files-found: error
