@@ -79,7 +79,9 @@ jobs:
           libtoolize --version
 
           echo "===== LIBTOOL.M4 ====="
-          find /usr -name "libtool.m4" 2>/dev/null || true
+          find /usr \
+            -name "libtool.m4" \
+            2>/dev/null || true
 
 
       # --------------------------------------------------
@@ -312,10 +314,47 @@ jobs:
       - name: Compiler APK
         working-directory: projet
         env:
-          # Indique aux Autotools où trouver les macros m4 système
-          # dont les macros Libtool
-          ACLOCAL_PATH: /usr/share/aclocal
+          # Force Autotools a chercher les macros systeme
+          # de Libtool
+          ACLOCAL_PATH: /usr/share/aclocal:/usr/share/libtool/m4
+
+          # Utiliser libtoolize du systeme
+          LIBTOOLIZE: libtoolize
+
         run: |
+
+          echo "===== MACROS LIBTOOL ====="
+
+          find /usr/share \
+            -name "libtool.m4" \
+            -o -name "lt*.m4" \
+            2>/dev/null | head -50
+
+
+          echo "===== ACLOCAL PATH ====="
+
+          echo "$ACLOCAL_PATH"
+
+
+          echo "===== LIBTOOL ====="
+
+          libtool --version
+
+          libtoolize --version
+
+
+          echo "===== AUTOCONF ====="
+
+          autoconf --version
+
+
+          echo "===== AUTOMAKE ====="
+
+          automake --version
+
+
+          echo "===== COMPILATION APK ====="
+
           buildozer -v android debug
 
 
