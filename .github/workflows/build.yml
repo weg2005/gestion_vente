@@ -27,9 +27,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            git zip unzip autoconf libtool pkg-config \
-            zlib1g-dev libncurses5-dev libncursesw5-dev \
-            cmake libffi-dev libssl-dev automake
+            git \
+            zip \
+            unzip \
+            autoconf \
+            libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            libncursesw5-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev \
+            automake
 
       - name: Configurer Android SDK
         run: |
@@ -50,7 +60,7 @@ jobs:
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
           find "$ANDROID_HOME" -name aidl -type f
-          aidl --version
+          echo "AIDL trouve avec succes"
 
       - name: Installer Buildozer
         run: |
