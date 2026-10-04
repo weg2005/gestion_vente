@@ -1,70 +1,55 @@
 name: Compiler APK Kivy
-on: workflow_dispatch:
+
+on:
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-22.04
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Installer Python
+      - name: Recuperer le projet
+        uses: actions/checkout@v4
+
+      - name: Installer Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11" # <--- PAS 3.14, OBLIGATOIREMENT 3.11
+          python-version: "3.11"
 
-      - name: Installer Java
+      - name: Installer Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Installer outils
+      - name: Installer outils Linux
         run: |
           sudo apt-get update
           sudo apt-get install -y git zip unzip autoconf automake libtool libtool-bin libltdl-dev gettext autopoint pkg-config zlib1g-dev libncurses5-dev cmake libffi-dev libssl-dev
 
       - name: Configurer Android SDK
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-      - name: Installer Buildozer
+      - name: Installer Buildozer et P4A
         run: |
           python -m pip install --upgrade pip
           pip install Cython==3.0.11
           pip install git+https://github.com/kivy/buildozer.git
           pip install git+https://github.com/kivy/python-for-android.git@develop
 
-      - name: Decompresser
+      - name: Decompresser le projet
         run: |
           mkdir projet
           unzip sql_stock.zip -d projet
+          ls -R projet | head -n 100
 
       - name: Creer buildozer.spec
         working-directory: projet
         run: |
-          cat > buildozer.spec << 'EOF'
-          [app]
-          title = Gestion Vente
-          package.name = gestionvente
-          package.domain = org.gestion
-          source.dir =.
-          source.include_exts = py,png,jpg,kv,atlas,db,ttf,txt,json
-          version = 0.1
-          requirements = python3,kivy==2.3.1,pillow
-          orientation = portrait
-
-          [buildozer]
-          log_level = 2
-
-          [app:android]
-          android.api = 33
-          android.minapi = 24
-          android.ndk = 28c
-          android.accept_sdk_license = True
-          android.archs = arm64-v8a
-          p4a.bootstrap = sdl2
-          p4a.branch = develop
-          EOF
+          rm -f buildozer.spec
+          printf "[app]\ntitle = Gestion Vente\npackage.name = gestionvente\npackage.domain = org.gestion\nsource.dir =.\nsource.include_exts = py,png,jpg,kv,atlas,db,ttf,txt,json\nversion = 0.1\nrequirements = python3,kivy==2.3.1,pillow\norientation = portrait\n\n[buildozer]\nlog_level = 2\n\n[app:android]\nandroid.api = 33\nandroid.minapi = 24\nandroid.ndk = 28c\nandroid.accept_sdk_license = True\nandroid.archs = arm64-v8a\np4a.bootstrap = sdl2\np4a.branch = develop\n" > buildozer.spec
           cat buildozer.spec
 
       - name: Compiler APK
@@ -74,6 +59,7 @@ jobs:
           buildozer -v android debug
 
       - name: Recuperer APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: gestion-vente-apk
