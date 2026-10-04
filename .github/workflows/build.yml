@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
 
@@ -50,6 +50,7 @@ jobs:
             automake \
             libtool \
             libtool-bin \
+            libltdl-dev \
             gettext \
             autopoint \
             pkg-config \
@@ -314,8 +315,7 @@ jobs:
       - name: Compiler APK
         working-directory: projet
         env:
-          # Force Autotools a chercher les macros systeme
-          # de Libtool
+          # Force Autotools a chercher les macros Libtool
           ACLOCAL_PATH: /usr/share/aclocal:/usr/share/libtool/m4
 
           # Utiliser libtoolize du systeme
@@ -378,6 +378,13 @@ jobs:
 
       # --------------------------------------------------
       # 17. Recuperer APK
+      # --------------------------------------------------
+      - name: Recuperer APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gestion-vente-apk
+          path: '**/*.apk'
+          if-no-files-found: errorecuperer APK
       # --------------------------------------------------
       - name: Recuperer APK
         uses: actions/upload-artifact@v4
