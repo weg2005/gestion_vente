@@ -9,25 +9,28 @@ jobs:
 
     steps:
 
-      # ==========================================================
-      # 1. RECUPERER LE PROJET
-      # ==========================================================
+      # ============================================================
+      # RECUPERER LE PROJET
+      # ============================================================
+
       - name: Recuperer le projet
         uses: actions/checkout@v4
 
 
-      # ==========================================================
-      # 2. PYTHON
-      # ==========================================================
+      # ============================================================
+      # PYTHON
+      # ============================================================
+
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.14"
 
 
-      # ==========================================================
-      # 3. JAVA
-      # ==========================================================
+      # ============================================================
+      # JAVA
+      # ============================================================
+
       - name: Installer Java
         uses: actions/setup-java@v4
         with:
@@ -35,9 +38,10 @@ jobs:
           java-version: "17"
 
 
-      # ==========================================================
-      # 4. OUTILS LINUX
-      # ==========================================================
+      # ============================================================
+      # OUTILS LINUX
+      # ============================================================
+
       - name: Installer les outils Linux
         run: |
           sudo apt-get update
@@ -62,15 +66,25 @@ jobs:
             libssl-dev
 
 
-      # ==========================================================
-      # 5. OUTILS AUTOTOOLS
-      # ==========================================================
+      # ============================================================
+      # VERIFICATION AUTOTOOLS
+      # ============================================================
+
       - name: Verifier les outils Autotools
         run: |
+          echo "===== AUTOCONF ====="
           autoconf --version
+
+          echo "===== AUTOMAKE ====="
           automake --version
+
+          echo "===== LIBTOOL ====="
           libtool --version
+
+          echo "===== LIBTOOLIZE ====="
           libtoolize --version
+
+          echo "===== MACROS LIBTOOL ====="
 
           find /usr \
             -name "libtool.m4" \
@@ -78,9 +92,10 @@ jobs:
             2>/dev/null | head -50
 
 
-      # ==========================================================
-      # 6. ANDROID SDK
-      # ==========================================================
+      # ============================================================
+      # ANDROID SDK
+      # ============================================================
+
       - name: Configurer Android SDK
         run: |
 
@@ -100,12 +115,14 @@ jobs:
             "build-tools;37.0.0"
 
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
           echo "$ANDROID_HOME/build-tools/37.0.0" >> "$GITHUB_PATH"
 
 
-      # ==========================================================
-      # 7. VERIFIER SDK
-      # ==========================================================
+      # ============================================================
+      # VERIFIER SDK
+      # ============================================================
+
       - name: Verifier Android SDK
         run: |
 
@@ -131,9 +148,10 @@ jobs:
             -print
 
 
-      # ==========================================================
-      # 8. BUILDOZER
-      # ==========================================================
+      # ============================================================
+      # BUILDOZER
+      # ============================================================
+
       - name: Installer Buildozer
         run: |
 
@@ -151,9 +169,10 @@ jobs:
           buildozer --version
 
 
-      # ==========================================================
-      # 9. DECOMPRESSER
-      # ==========================================================
+      # ============================================================
+      # DECOMPRESSER LE PROJET
+      # ============================================================
+
       - name: Decompresser le projet
         run: |
 
@@ -162,18 +181,21 @@ jobs:
           unzip sql_stock.zip -d projet
 
 
-      # ==========================================================
-      # 10. BUILDOZER SPEC
-      # ==========================================================
+      # ============================================================
+      # CREER BUILDOZER.SPEC
+      # ============================================================
+
       - name: Creer buildozer.spec
         working-directory: projet
         run: |
+
           buildozer init
 
 
-      # ==========================================================
-      # 11. CONFIGURER BUILDOZER
-      # ==========================================================
+      # ============================================================
+      # CONFIGURATION BUILDOZER
+      # ============================================================
+
       - name: Configurer Buildozer
         working-directory: projet
         run: |
@@ -203,6 +225,8 @@ jobs:
             buildozer.spec
 
 
+          # API Android
+
           if grep -q '^android.api =' buildozer.spec; then
             sed -i \
               's/^android.api = .*/android.api = 35/' \
@@ -211,6 +235,8 @@ jobs:
             echo "android.api = 35" >> buildozer.spec
           fi
 
+
+          # API minimum
 
           if grep -q '^android.minapi =' buildozer.spec; then
             sed -i \
@@ -221,6 +247,8 @@ jobs:
           fi
 
 
+          # SDK
+
           if grep -q '^android.sdk_path =' buildozer.spec; then
             sed -i \
               "s|^android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" \
@@ -230,6 +258,8 @@ jobs:
           fi
 
 
+          # NDK
+
           if grep -q '^android.ndk =' buildozer.spec; then
             sed -i \
               's/^android.ndk = .*/android.ndk = 28c/' \
@@ -238,6 +268,8 @@ jobs:
             echo "android.ndk = 28c" >> buildozer.spec
           fi
 
+
+          # Python-for-Android
 
           if grep -q '^p4a.branch =' buildozer.spec; then
             sed -i \
@@ -257,6 +289,8 @@ jobs:
           fi
 
 
+          # Niveau de log
+
           if grep -q '^log_level =' buildozer.spec; then
             sed -i \
               's/^log_level = .*/log_level = 2/' \
@@ -266,9 +300,10 @@ jobs:
           fi
 
 
-      # ==========================================================
-      # 12. AFFICHER CONFIGURATION
-      # ==========================================================
+      # ============================================================
+      # VERIFIER CONFIGURATION
+      # ============================================================
+
       - name: Verifier configuration
         working-directory: projet
         run: |
@@ -278,9 +313,10 @@ jobs:
             buildozer.spec
 
 
-      # ==========================================================
-      # 13. SDK INTERNE BUILDOZER
-      # ==========================================================
+      # ============================================================
+      # PREPARER SDK BUILDOZER
+      # ============================================================
+
       - name: Preparer le SDK Buildozer
         run: |
 
@@ -288,6 +324,9 @@ jobs:
 
           mkdir -p "$SDK/tools/bin"
 
+
+          # Compatibilite avec les anciennes versions
+          # de Buildozer
 
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
@@ -298,14 +337,20 @@ jobs:
             "$SDK/tools/bin/avdmanager"
 
 
+          echo "===== SDKMANAGER ====="
+
           "$SDK/tools/bin/sdkmanager" --version
 
+
+          echo "===== LICENCES ====="
 
           yes | \
             "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
             --licenses || true
 
+
+          echo "===== INSTALLATION SDK ====="
 
           "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
@@ -315,19 +360,23 @@ jobs:
             "build-tools;37.0.0"
 
 
-      # ==========================================================
-      # 14. NETTOYAGE
-      # ==========================================================
+      # ============================================================
+      # NETTOYAGE
+      # ============================================================
+
       - name: Nettoyer ancien environnement
         working-directory: projet
         run: |
+
           rm -rf .buildozer
+
           rm -rf bin
 
 
-      # ==========================================================
-      # 15. INITIALISER P4A SANS COMPILER
-      # ==========================================================
+      # ============================================================
+      # INITIALISER PYTHON-FOR-ANDROID
+      # ============================================================
+
       - name: Initialiser Python-for-Android
         working-directory: projet
         run: |
@@ -341,80 +390,172 @@ jobs:
             || true
 
           echo ""
+
           echo "===== FIN INITIALISATION ====="
 
 
-      # ==========================================================
-      # 16. REPARER LE PIP INTERNE
-      # ==========================================================
-      - name: Reparer le pip interne de P4A
+      # ============================================================
+      # REPARER PIP INTERNE P4A
+      # ============================================================
+
+      - name: Reparer definitivement le pip interne de P4A
         working-directory: projet
         run: |
 
-          echo "=================================================="
-          echo "RECHERCHE DES ENVIRONNEMENTS VIRTUELS P4A"
-          echo "=================================================="
-
-          find .buildozer \
-            -type f \
-            -path "*/bin/pip" \
-            -print \
-            2>/dev/null || true
+          set -e
 
 
-          echo ""
-          echo "=================================================="
-          echo "RECHERCHE DU VENV DE BUILD"
-          echo "=================================================="
+          echo "=============================================="
+          echo "RECHERCHE DU PYTHON INTERNE DE P4A"
+          echo "=============================================="
+
 
           VENV=$(find .buildozer \
             -type f \
             -path "*/build/venv/bin/python" \
             -print \
-            2>/dev/null \
-            | head -1)
+            2>/dev/null | head -1)
 
 
-          if [ -n "$VENV" ]; then
-
-            echo "Python interne trouve :"
-            echo "$VENV"
-
-            VENV_DIR=$(dirname "$VENV")
+          if [ -z "$VENV" ]; then
 
             echo ""
-            echo "Reparation de pip..."
-
-            "$VENV" -m ensurepip --upgrade || true
-
-            "$VENV" -m pip install \
-              --upgrade \
-              "pip<26" \
-              setuptools \
-              wheel \
-              || true
+            echo "ERREUR : aucun Python interne P4A trouve."
 
             echo ""
-            echo "Version pip interne :"
+            echo "===== CONTENU BUILDOZER ====="
 
-            "$VENV" -m pip --version || true
+            find .buildozer \
+              -maxdepth 8 \
+              -type f \
+              -name python \
+              -print \
+              2>/dev/null || true
 
-          else
-
-            echo "Aucun venv P4A trouve."
+            exit 1
 
           fi
 
 
-      # ==========================================================
-      # 17. RECHERCHE CHARSET APRES INITIALISATION
-      # ==========================================================
-      - name: Rechercher charset_normalizer apres initialisation
+          echo ""
+
+          echo "Python trouve :"
+
+          echo "$VENV"
+
+
+          # ========================================================
+          # PYTHON
+          # ========================================================
+
+          echo ""
+          echo "=============================================="
+          echo "PYTHON INTERNE"
+          echo "=============================================="
+
+          "$VENV" --version
+
+
+          # ========================================================
+          # PIP AVANT
+          # ========================================================
+
+          echo ""
+          echo "=============================================="
+          echo "PIP AVANT REPARATION"
+          echo "=============================================="
+
+          "$VENV" -m pip --version || true
+
+
+          # ========================================================
+          # ENSUREPIP
+          # ========================================================
+
+          echo ""
+          echo "=============================================="
+          echo "REINSTALLATION DE PIP"
+          echo "=============================================="
+
+          "$VENV" -m ensurepip --upgrade
+
+
+          # ========================================================
+          # PIP 25.3
+          # ========================================================
+
+          echo ""
+          echo "=============================================="
+          echo "INSTALLATION PIP 25.3"
+          echo "=============================================="
+
+          "$VENV" -m pip install \
+            --force-reinstall \
+            --no-cache-dir \
+            "pip==25.3"
+
+
+          # ========================================================
+          # SETUPTOOLS
+          # ========================================================
+
+          echo ""
+          echo "=============================================="
+          echo "INSTALLATION SETUPTOOLS + WHEEL"
+          echo "=============================================="
+
+          "$VENV" -m pip install \
+            --force-reinstall \
+            --no-cache-dir \
+            setuptools \
+            wheel
+
+
+          # ========================================================
+          # VERIFICATION VERSION
+          # ========================================================
+
+          echo ""
+          echo "=============================================="
+          echo "VERSION PIP APRES REPARATION"
+          echo "=============================================="
+
+          "$VENV" -m pip --version
+
+
+          # ========================================================
+          # TEST BuildDependencyInstallError
+          # ========================================================
+
+          echo ""
+          echo "=============================================="
+          echo "TEST BuildDependencyInstallError"
+          echo "=============================================="
+
+          "$VENV" -c "
+          import pip
+          print('PIP VERSION:', pip.__version__)
+          from pip._internal.exceptions import BuildDependencyInstallError
+          print('BuildDependencyInstallError : OK')
+          "
+
+
+          echo ""
+          echo "=============================================="
+          echo "PIP INTERNE REPARE AVEC SUCCES"
+          echo "=============================================="
+
+
+      # ============================================================
+      # RECHERCHER CHARSET NORMALIZER
+      # ============================================================
+
+      - name: Rechercher charset_normalizer apres reparation
         working-directory: projet
         run: |
 
           echo "=========================================================="
-          echo " RECHERCHE CHARSET_NORMALIZER APRES INITIALISATION"
+          echo "RECHERCHE CHARSET_NORMALIZER"
           echo "=========================================================="
 
 
@@ -422,11 +563,9 @@ jobs:
 
 
           echo ""
-          echo "===== 1. PYTHON-FOR-ANDROID ====="
+          echo "===== PYTHON-FOR-ANDROID ====="
 
           if [ -d "$P4A" ]; then
-
-            echo "P4A : $P4A"
 
             grep -RniE \
               "charset[_-]normalizer" \
@@ -442,7 +581,7 @@ jobs:
 
 
           echo ""
-          echo "===== 2. RECETTES ====="
+          echo "===== RECETTES ====="
 
           if [ -d "$P4A/pythonforandroid/recipes" ]; then
 
@@ -456,7 +595,7 @@ jobs:
 
 
           echo ""
-          echo "===== 3. TOUT .BUILDOZER ====="
+          echo "===== BUILDOZER ====="
 
           grep -RniE \
             "charset[_-]normalizer" \
@@ -466,7 +605,7 @@ jobs:
 
 
           echo ""
-          echo "===== 4. WHEELS ====="
+          echo "===== WHEELS ====="
 
           find "$HOME/.buildozer" \
             -type f \
@@ -475,16 +614,20 @@ jobs:
               -o -iname "*normalizer*" \
             \) \
             -print \
-            2>/dev/null
+            2>/dev/null \
+            || true
 
 
           echo ""
-          echo "===== FIN RECHERCHE ====="
+          echo "=========================================================="
+          echo "FIN RECHERCHE"
+          echo "=========================================================="
 
 
-      # ==========================================================
-      # 18. COMPILATION FINALE
-      # ==========================================================
+      # ============================================================
+      # COMPILATION
+      # ============================================================
+
       - name: Compiler APK
         working-directory: projet
         env:
@@ -499,9 +642,10 @@ jobs:
           buildozer -v android debug
 
 
-      # ==========================================================
-      # 19. CHERCHER APK
-      # ==========================================================
+      # ============================================================
+      # CHERCHER APK
+      # ============================================================
+
       - name: Chercher APK
         if: always()
         run: |
@@ -513,17 +657,20 @@ jobs:
             -name "*.apk" \
             -print
 
+
           echo ""
-          echo "===== BIN ====="
+
+          echo "===== DOSSIER BIN ====="
 
           ls -lah \
             projet/bin/ \
             || true
 
 
-      # ==========================================================
-      # 20. RECUPERER APK
-      # ==========================================================
+      # ============================================================
+      # RECUPERER APK
+      # ============================================================
+
       - name: Recuperer APK
         if: success()
         uses: actions/upload-artifact@v4
