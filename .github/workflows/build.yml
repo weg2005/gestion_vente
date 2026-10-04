@@ -36,7 +36,7 @@ jobs:
       - name: Decompresser le projet
         run: |
           mkdir projet
-          unzip gestion_stock.zip -d projet
+          unzip sql_stock.zip -d projet
 
       - name: Afficher le contenu
         run: |
