@@ -19,9 +19,6 @@ jobs:
       # =========================================================
       # 2. INSTALLER PYTHON
       # =========================================================
-      # python-for-android develop fonctionne maintenant avec
-      # Python 3.14.
-      # =========================================================
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
@@ -143,9 +140,6 @@ jobs:
       # =========================================================
       # 8. INSTALLER BUILDOZER
       # =========================================================
-      # On utilise la version actuelle de Buildozer depuis GitHub,
-      # recommandée pour le fonctionnement avec p4a develop.
-      # =========================================================
       - name: Installer Buildozer
         run: |
 
@@ -223,7 +217,7 @@ jobs:
 
 
           # -----------------------------------------------------
-          # Extensions incluses dans l'APK
+          # Extensions
           # -----------------------------------------------------
 
           sed -i \
@@ -232,7 +226,7 @@ jobs:
 
 
           # -----------------------------------------------------
-          # Dépendances Python
+          # Dépendances
           # -----------------------------------------------------
 
           sed -i \
@@ -278,7 +272,7 @@ jobs:
 
 
           # -----------------------------------------------------
-          # SDK Android
+          # SDK
           # -----------------------------------------------------
 
           if grep -q '^android.sdk_path =' buildozer.spec
@@ -294,8 +288,6 @@ jobs:
           # -----------------------------------------------------
           # NDK
           # -----------------------------------------------------
-          # On laisse Buildozer utiliser son NDK préparé.
-          # -----------------------------------------------------
 
           if grep -q '^android.ndk =' buildozer.spec
           then
@@ -309,14 +301,6 @@ jobs:
 
           # -----------------------------------------------------
           # PYTHON-FOR-ANDROID
-          # -----------------------------------------------------
-          #
-          # CORRECTIF DE L'ERREUR :
-          #
-          # ImportError:
-          # cannot import name BuildDependencyInstallError
-          #
-          # On force le commit qui contient le correctif.
           # -----------------------------------------------------
 
           if grep -q '^p4a.branch =' buildozer.spec
@@ -340,7 +324,7 @@ jobs:
 
 
           # -----------------------------------------------------
-          # Niveau des logs
+          # LOG
           # -----------------------------------------------------
 
           if grep -q '^log_level =' buildozer.spec
@@ -354,14 +338,14 @@ jobs:
 
 
       # =========================================================
-      # 13. AFFICHER LA CONFIGURATION
+      # 13. VERIFIER CONFIGURATION
       # =========================================================
-      - name: Verifier configuration Buildozer
+      - name: Verifier configuration
         working-directory: projet
         run: |
 
           echo "======================================"
-          echo "CONFIGURATION BUILDOZER"
+          echo "BUILDOZER.SPEC"
           echo "======================================"
 
           grep -nE \
@@ -372,13 +356,6 @@ jobs:
       # =========================================================
       # 14. PREPARER LE SDK BUILDOZER
       # =========================================================
-      # Buildozer cherche encore l'ancien chemin :
-      #
-      # ~/.buildozer/android/platform/android-sdk/tools/bin/sdkmanager
-      #
-      # On crée donc les anciens chemins vers le sdkmanager
-      # moderne de GitHub Actions.
-      # =========================================================
       - name: Preparer le SDK Buildozer
         run: |
 
@@ -386,54 +363,34 @@ jobs:
 
           echo "SDK Buildozer : $SDK"
 
-
-          # -----------------------------------------------------
-          # Créer les anciens répertoires attendus
-          # -----------------------------------------------------
-
           mkdir -p "$SDK"
 
           mkdir -p "$SDK/tools/bin"
 
 
-          # -----------------------------------------------------
-          # Relier sdkmanager
-          # -----------------------------------------------------
-
+          # sdkmanager ancien chemin
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "$SDK/tools/bin/sdkmanager"
 
 
-          # -----------------------------------------------------
-          # Relier avdmanager
-          # -----------------------------------------------------
-
+          # avdmanager ancien chemin
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" \
             "$SDK/tools/bin/avdmanager"
 
 
-          # -----------------------------------------------------
-          # Vérifier sdkmanager
-          # -----------------------------------------------------
-
+          # Vérification
           "$SDK/tools/bin/sdkmanager" --version
 
 
-          # -----------------------------------------------------
-          # Accepter les licences
-          # -----------------------------------------------------
-
+          # Licences
           yes | "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
             --licenses || true
 
 
-          # -----------------------------------------------------
-          # Installer les plateformes nécessaires
-          # -----------------------------------------------------
-
+          # Plateformes
           "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
             "platform-tools" \
@@ -442,18 +399,15 @@ jobs:
             "build-tools;37.0.0"
 
 
-          # -----------------------------------------------------
-          # Vérification
-          # -----------------------------------------------------
-
-          echo "===== PLATEFORMES BUILDOZER ====="
+          echo "===== PLATEFORMES ====="
 
           find "$SDK/platforms" \
             -maxdepth 1 \
             -type d \
             -print
 
-          echo "===== BUILD TOOLS BUILDOZER ====="
+
+          echo "===== BUILD TOOLS ====="
 
           find "$SDK/build-tools" \
             -maxdepth 1 \
@@ -462,17 +416,13 @@ jobs:
 
 
       # =========================================================
-      # 15. NETTOYER UN ANCIEN BUILDOZER
-      # =========================================================
-      # Très important :
-      # on ne veut pas réutiliser l'ancien python-for-android
-      # qui a provoqué l'erreur pip.
+      # 15. NETTOYER L'ANCIEN BUILD
       # =========================================================
       - name: Nettoyer ancien environnement Buildozer
         working-directory: projet
         run: |
 
-          echo "Suppression de l'ancien environnement Buildozer..."
+          echo "Suppression de l'ancien environnement..."
 
           rm -rf .buildozer
 
@@ -482,28 +432,57 @@ jobs:
 
 
       # =========================================================
-      # 16. VERIFIER PIP / PYTHON
+      # 16. PREPARER PIP
       # =========================================================
-      - name: Verifier Python
+      # IMPORTANT :
+      #
+      # On force une version de charset-normalizer connue pour
+      # être compatible avec l'environnement Python.
+      #
+      # On ne l'ajoute PAS aux requirements Buildozer.
+      # =========================================================
+      - name: Preparer les dependances Python
         run: |
 
-          echo "===== PYTHON ====="
+          python -m pip install --upgrade pip
+
+          python -m pip install \
+            "charset-normalizer==3.4.3"
+
+          python -m pip show charset-normalizer || true
+
+
+      # =========================================================
+      # 17. VERIFIER L'ENVIRONNEMENT
+      # =========================================================
+      - name: Verifier environnement
+        run: |
+
+          echo "======================================"
+          echo "PYTHON"
+          echo "======================================"
 
           python --version
 
           python -m pip --version
 
-          echo "===== JAVA ====="
+
+          echo "======================================"
+          echo "JAVA"
+          echo "======================================"
 
           java -version
 
-          echo "===== BUILDOZER ====="
+
+          echo "======================================"
+          echo "BUILDOZER"
+          echo "======================================"
 
           buildozer --version
 
 
       # =========================================================
-      # 17. COMPILER L'APK
+      # 18. COMPILER APK
       # =========================================================
       - name: Compiler APK
         working-directory: projet
@@ -523,22 +502,6 @@ jobs:
 
 
           echo "======================================"
-          echo "ACLOCAL PATH"
-          echo "======================================"
-
-          echo "$ACLOCAL_PATH"
-
-
-          echo "======================================"
-          echo "LIBTOOL"
-          echo "======================================"
-
-          libtool --version
-
-          libtoolize --version
-
-
-          echo "======================================"
           echo "AUTOCONF"
           echo "======================================"
 
@@ -553,7 +516,16 @@ jobs:
 
 
           echo "======================================"
-          echo "BUILDOZER SPEC"
+          echo "LIBTOOL"
+          echo "======================================"
+
+          libtool --version
+
+          libtoolize --version
+
+
+          echo "======================================"
+          echo "CONFIGURATION"
           echo "======================================"
 
           grep -nE \
@@ -569,7 +541,7 @@ jobs:
 
 
       # =========================================================
-      # 18. CHERCHER L'APK
+      # 19. CHERCHER APK
       # =========================================================
       - name: Chercher APK
         if: always()
@@ -593,7 +565,7 @@ jobs:
 
 
       # =========================================================
-      # 19. RECUPERER L'APK
+      # 20. RECUPERER APK
       # =========================================================
       - name: Recuperer APK
         if: success()
