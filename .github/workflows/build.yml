@@ -1,577 +1,80 @@
 name: Compiler APK Kivy
-
-on:
-  workflow_dispatch:
-
+on: workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-22.04
-
     steps:
-
-      # =========================================================
-      # 1. RECUPERER LE PROJET
-      # =========================================================
-      - name: Recuperer le projet
-        uses: actions/checkout@v4
-
-
-      # =========================================================
-      # 2. INSTALLER PYTHON
-      # =========================================================
+      - uses: actions/checkout@v4
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.14"
+          python-version: "3.11" # <--- PAS 3.14, OBLIGATOIREMENT 3.11
 
-
-      # =========================================================
-      # 3. INSTALLER JAVA
-      # =========================================================
       - name: Installer Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-
-      # =========================================================
-      # 4. OUTILS LINUX
-      # =========================================================
-      - name: Installer les outils Linux
+      - name: Installer outils
         run: |
           sudo apt-get update
+          sudo apt-get install -y git zip unzip autoconf automake libtool libtool-bin libltdl-dev gettext autopoint pkg-config zlib1g-dev libncurses5-dev cmake libffi-dev libssl-dev
 
-          sudo apt-get install -y \
-            git \
-            zip \
-            unzip \
-            autoconf \
-            automake \
-            libtool \
-            libtool-bin \
-            libltdl-dev \
-            gettext \
-            autopoint \
-            pkg-config \
-            zlib1g-dev \
-            libncurses5-dev \
-            libncursesw5-dev \
-            cmake \
-            libffi-dev \
-            libssl-dev
-
-
-      # =========================================================
-      # 5. VERIFIER AUTOTOOLS
-      # =========================================================
-      - name: Verifier les outils Autotools
-        run: |
-          echo "===== AUTOCONF ====="
-          autoconf --version
-
-          echo "===== AUTOMAKE ====="
-          automake --version
-
-          echo "===== LIBTOOL ====="
-          libtool --version
-
-          echo "===== LIBTOOLIZE ====="
-          libtoolize --version
-
-          echo "===== LIBTOOL.M4 ====="
-          find /usr -name "libtool.m4" 2>/dev/null || true
-
-
-      # =========================================================
-      # 6. CONFIGURER ANDROID SDK
-      # =========================================================
       - name: Configurer Android SDK
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME" >> "$GITHUB_ENV"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.2"
 
-          echo "ANDROID_HOME=$ANDROID_HOME"
-
-          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
-
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            --licenses || true
-
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" \
-            "platforms;android-33" \
-            "platforms;android-35" \
-            "build-tools;37.0.0"
-
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-
-          echo "$ANDROID_HOME/build-tools/37.0.0" >> "$GITHUB_PATH"
-
-
-      # =========================================================
-      # 7. VERIFIER ANDROID SDK
-      # =========================================================
-      - name: Verifier Android SDK
-        run: |
-
-          echo "===== PLATFORMS ====="
-
-          find "$ANDROID_HOME/platforms" \
-            -maxdepth 1 \
-            -type d \
-            -print
-
-          echo "===== AIDL ====="
-
-          find "$ANDROID_HOME" \
-            -name aidl \
-            -type f \
-            -print
-
-          echo "===== BUILD TOOLS ====="
-
-          find "$ANDROID_HOME/build-tools" \
-            -maxdepth 1 \
-            -type d \
-            -print
-
-
-      # =========================================================
-      # 8. INSTALLER BUILDOZER
-      # =========================================================
       - name: Installer Buildozer
         run: |
-
           python -m pip install --upgrade pip
+          pip install Cython==3.0.11
+          pip install git+https://github.com/kivy/buildozer.git
+          pip install git+https://github.com/kivy/python-for-android.git@develop
 
-          pip install \
-            git+https://github.com/kivy/buildozer.git
-
-          pip install legacy-cgi
-
-          pip install setuptools
-
-          pip install "cython==0.29.34"
-
-          buildozer --version
-
-
-      # =========================================================
-      # 9. DECOMPRESSER LE PROJET
-      # =========================================================
-      - name: Decompresser le projet
+      - name: Decompresser
         run: |
-
           mkdir projet
-
           unzip sql_stock.zip -d projet
 
-
-      # =========================================================
-      # 10. AFFICHER LE PROJET
-      # =========================================================
-      - name: Afficher le projet
-        run: |
-
-          echo "===== CONTENU DU PROJET ====="
-
-          find projet \
-            -maxdepth 2 \
-            -type f \
-            -print
-
-
-      # =========================================================
-      # 11. CREER BUILDOZER.SPEC
-      # =========================================================
       - name: Creer buildozer.spec
         working-directory: projet
         run: |
+          cat > buildozer.spec << 'EOF'
+          [app]
+          title = Gestion Vente
+          package.name = gestionvente
+          package.domain = org.gestion
+          source.dir =.
+          source.include_exts = py,png,jpg,kv,atlas,db,ttf,txt,json
+          version = 0.1
+          requirements = python3,kivy==2.3.1,pillow
+          orientation = portrait
+
+          [buildozer]
+          log_level = 2
+
+          [app:android]
+          android.api = 33
+          android.minapi = 24
+          android.ndk = 28c
+          android.accept_sdk_license = True
+          android.archs = arm64-v8a
+          p4a.bootstrap = sdl2
+          p4a.branch = develop
+          EOF
+          cat buildozer.spec
 
-          buildozer init
-
-
-      # =========================================================
-      # 12. CONFIGURER BUILDOZER
-      # =========================================================
-      - name: Configurer Buildozer
-        working-directory: projet
-        run: |
-
-          # -----------------------------------------------------
-          # Informations générales
-          # -----------------------------------------------------
-
-          sed -i \
-            's/^title = .*/title = Gestion Vente/' \
-            buildozer.spec
-
-          sed -i \
-            's/^package.name = .*/package.name = gestionvente/' \
-            buildozer.spec
-
-          sed -i \
-            's/^package.domain = .*/package.domain = org.gestion/' \
-            buildozer.spec
-
-
-          # -----------------------------------------------------
-          # Extensions
-          # -----------------------------------------------------
-
-          sed -i \
-            's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' \
-            buildozer.spec
-
-
-          # -----------------------------------------------------
-          # Dépendances
-          # -----------------------------------------------------
-
-          sed -i \
-            's/^requirements = .*/requirements = python3,kivy/' \
-            buildozer.spec
-
-
-          # -----------------------------------------------------
-          # Orientation
-          # -----------------------------------------------------
-
-          sed -i \
-            's/^orientation = .*/orientation = portrait/' \
-            buildozer.spec
-
-
-          # -----------------------------------------------------
-          # Android API
-          # -----------------------------------------------------
-
-          if grep -q '^android.api =' buildozer.spec
-          then
-            sed -i \
-              's/^android.api = .*/android.api = 35/' \
-              buildozer.spec
-          else
-            echo "android.api = 35" >> buildozer.spec
-          fi
-
-
-          # -----------------------------------------------------
-          # Android minimum API
-          # -----------------------------------------------------
-
-          if grep -q '^android.minapi =' buildozer.spec
-          then
-            sed -i \
-              's/^android.minapi = .*/android.minapi = 24/' \
-              buildozer.spec
-          else
-            echo "android.minapi = 24" >> buildozer.spec
-          fi
-
-
-          # -----------------------------------------------------
-          # SDK
-          # -----------------------------------------------------
-
-          if grep -q '^android.sdk_path =' buildozer.spec
-          then
-            sed -i \
-              "s|^android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" \
-              buildozer.spec
-          else
-            echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
-          fi
-
-
-          # -----------------------------------------------------
-          # NDK
-          # -----------------------------------------------------
-
-          if grep -q '^android.ndk =' buildozer.spec
-          then
-            sed -i \
-              's/^android.ndk = .*/android.ndk = 28c/' \
-              buildozer.spec
-          else
-            echo "android.ndk = 28c" >> buildozer.spec
-          fi
-
-
-          # -----------------------------------------------------
-          # PYTHON-FOR-ANDROID
-          # -----------------------------------------------------
-
-          if grep -q '^p4a.branch =' buildozer.spec
-          then
-            sed -i \
-              's/^p4a.branch = .*/p4a.branch = develop/' \
-              buildozer.spec
-          else
-            echo "p4a.branch = develop" >> buildozer.spec
-          fi
-
-
-          if grep -q '^p4a.commit =' buildozer.spec
-          then
-            sed -i \
-              's/^p4a.commit = .*/p4a.commit = d2ee8c5/' \
-              buildozer.spec
-          else
-            echo "p4a.commit = d2ee8c5" >> buildozer.spec
-          fi
-
-
-          # -----------------------------------------------------
-          # LOG
-          # -----------------------------------------------------
-
-          if grep -q '^log_level =' buildozer.spec
-          then
-            sed -i \
-              's/^log_level = .*/log_level = 2/' \
-              buildozer.spec
-          else
-            echo "log_level = 2" >> buildozer.spec
-          fi
-
-
-      # =========================================================
-      # 13. VERIFIER CONFIGURATION
-      # =========================================================
-      - name: Verifier configuration
-        working-directory: projet
-        run: |
-
-          echo "======================================"
-          echo "BUILDOZER.SPEC"
-          echo "======================================"
-
-          grep -nE \
-            "title|package.name|package.domain|requirements|orientation|android.api|android.minapi|android.ndk|p4a.branch|p4a.commit|android.sdk_path|log_level" \
-            buildozer.spec
-
-
-      # =========================================================
-      # 14. PREPARER LE SDK BUILDOZER
-      # =========================================================
-      - name: Preparer le SDK Buildozer
-        run: |
-
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          echo "SDK Buildozer : $SDK"
-
-          mkdir -p "$SDK"
-
-          mkdir -p "$SDK/tools/bin"
-
-
-          # sdkmanager ancien chemin
-          ln -sf \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "$SDK/tools/bin/sdkmanager"
-
-
-          # avdmanager ancien chemin
-          ln -sf \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" \
-            "$SDK/tools/bin/avdmanager"
-
-
-          # Vérification
-          "$SDK/tools/bin/sdkmanager" --version
-
-
-          # Licences
-          yes | "$SDK/tools/bin/sdkmanager" \
-            --sdk_root="$SDK" \
-            --licenses || true
-
-
-          # Plateformes
-          "$SDK/tools/bin/sdkmanager" \
-            --sdk_root="$SDK" \
-            "platform-tools" \
-            "platforms;android-33" \
-            "platforms;android-35" \
-            "build-tools;37.0.0"
-
-
-          echo "===== PLATEFORMES ====="
-
-          find "$SDK/platforms" \
-            -maxdepth 1 \
-            -type d \
-            -print
-
-
-          echo "===== BUILD TOOLS ====="
-
-          find "$SDK/build-tools" \
-            -maxdepth 1 \
-            -type d \
-            -print
-
-
-      # =========================================================
-      # 15. NETTOYER L'ANCIEN BUILD
-      # =========================================================
-      - name: Nettoyer ancien environnement Buildozer
-        working-directory: projet
-        run: |
-
-          echo "Suppression de l'ancien environnement..."
-
-          rm -rf .buildozer
-
-          rm -rf bin
-
-          echo "Nettoyage terminé."
-
-
-      # =========================================================
-      # 16. PREPARER PIP
-      # =========================================================
-      # IMPORTANT :
-      #
-      # On force une version de charset-normalizer connue pour
-      # être compatible avec l'environnement Python.
-      #
-      # On ne l'ajoute PAS aux requirements Buildozer.
-      # =========================================================
-      - name: Preparer les dependances Python
-        run: |
-
-          python -m pip install --upgrade pip
-
-          python -m pip install \
-            "charset-normalizer==3.4.3"
-
-          python -m pip show charset-normalizer || true
-
-
-      # =========================================================
-      # 17. VERIFIER L'ENVIRONNEMENT
-      # =========================================================
-      - name: Verifier environnement
-        run: |
-
-          echo "======================================"
-          echo "PYTHON"
-          echo "======================================"
-
-          python --version
-
-          python -m pip --version
-
-
-          echo "======================================"
-          echo "JAVA"
-          echo "======================================"
-
-          java -version
-
-
-          echo "======================================"
-          echo "BUILDOZER"
-          echo "======================================"
-
-          buildozer --version
-
-
-      # =========================================================
-      # 18. COMPILER APK
-      # =========================================================
       - name: Compiler APK
         working-directory: projet
-        env:
-          ACLOCAL_PATH: /usr/share/aclocal:/usr/share/libtool/m4
-          LIBTOOLIZE: libtoolize
         run: |
-
-          echo "======================================"
-          echo "MACROS LIBTOOL"
-          echo "======================================"
-
-          find /usr/share \
-            -name "libtool.m4" \
-            -o -name "lt*.m4" \
-            2>/dev/null | head -50
-
-
-          echo "======================================"
-          echo "AUTOCONF"
-          echo "======================================"
-
-          autoconf --version
-
-
-          echo "======================================"
-          echo "AUTOMAKE"
-          echo "======================================"
-
-          automake --version
-
-
-          echo "======================================"
-          echo "LIBTOOL"
-          echo "======================================"
-
-          libtool --version
-
-          libtoolize --version
-
-
-          echo "======================================"
-          echo "CONFIGURATION"
-          echo "======================================"
-
-          grep -nE \
-            "android.api|android.minapi|android.ndk|p4a.branch|p4a.commit|requirements" \
-            buildozer.spec
-
-
-          echo "======================================"
-          echo "COMPILATION APK"
-          echo "======================================"
-
+          rm -rf.buildozer bin
           buildozer -v android debug
 
-
-      # =========================================================
-      # 19. CHERCHER APK
-      # =========================================================
-      - name: Chercher APK
-        if: always()
-        run: |
-
-          echo "======================================"
-          echo "APK TROUVEES"
-          echo "======================================"
-
-          find . \
-            -type f \
-            -name "*.apk" \
-            -print
-
-
-          echo "======================================"
-          echo "DOSSIER BIN"
-          echo "======================================"
-
-          ls -lah projet/bin/ || true
-
-
-      # =========================================================
-      # 20. RECUPERER APK
-      # =========================================================
       - name: Recuperer APK
-        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: gestion-vente-apk
-          path: |
-            projet/bin/*.apk
-          if-no-files-found: error
+          path: projet/bin/*.apk
