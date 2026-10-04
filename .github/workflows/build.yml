@@ -59,8 +59,15 @@ jobs:
       - name: Verifier Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "AIDL disponibles :"
+
+          echo "===== AIDL DISPONIBLES ====="
           find "$ANDROID_HOME" -name aidl -type f
+
+          echo "===== PLATEFORMES ANDROID ====="
+          ls -la "$ANDROID_HOME/platforms"
+
+          echo "===== BUILD TOOLS ====="
+          ls -la "$ANDROID_HOME/build-tools"
 
       - name: Installer Buildozer
         run: |
@@ -75,6 +82,7 @@ jobs:
 
       - name: Afficher le projet
         run: |
+          echo "===== FICHIERS DU PROJET ====="
           find projet -maxdepth 2 -type f
 
       - name: Creer buildozer.spec
@@ -85,30 +93,70 @@ jobs:
       - name: Configurer Buildozer
         working-directory: projet
         run: |
+
+          echo "===== CONFIGURATION BUILDOZER ====="
+
           sed -i 's/^title = .*/title = Gestion Vente/' buildozer.spec
+
           sed -i 's/^package.name = .*/package.name = gestionvente/' buildozer.spec
+
           sed -i 's/^package.domain = .*/package.domain = org.gestion/' buildozer.spec
 
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
+
           sed -i 's/^requirements = .*/requirements = python3,kivy/' buildozer.spec
+
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
 
-          echo "android.api = 35" >> buildozer.spec
-          echo "android.minapi = 24" >> buildozer.spec
-          echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+          # CORRECTION IMPORTANTE :
+          # Remplacer l'API 33 créée par buildozer init
+          # par l'API 35 installée dans le SDK.
 
-          echo "===== BUILDOZER.SPEC ====="
+          if grep -q '^android.api =' buildozer.spec; then
+            sed -i 's/^android.api = .*/android.api = 35/' buildozer.spec
+          else
+            echo "android.api = 35" >> buildozer.spec
+          fi
+
+          if grep -q '^android.minapi =' buildozer.spec; then
+            sed -i 's/^android.minapi = .*/android.minapi = 24/' buildozer.spec
+          else
+            echo "android.minapi = 24" >> buildozer.spec
+          fi
+
+          if grep -q '^android.sdk_path =' buildozer.spec; then
+            sed -i "s|^android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
+          else
+            echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+          fi
+
+          if grep -q '^log_level =' buildozer.spec; then
+            sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
+          else
+            echo "log_level = 2" >> buildozer.spec
+          fi
+
+          echo ""
+          echo "===== VERIFICATION API ====="
+          grep -n "android.api" buildozer.spec
+          grep -n "android.minapi" buildozer.spec
+          grep -n "android.sdk_path" buildozer.spec
+          grep -n "log_level" buildozer.spec
+
+          echo ""
+          echo "===== BUILDOZER.SPEC COMPLET ====="
           cat buildozer.spec
 
       - name: Preparer le SDK Buildozer
         run: |
           SDK="$HOME/.buildozer/android/platform/android-sdk"
 
-          echo "===== CREATION DU SDK ====="
-          mkdir -p "$SDK"
+          echo "===== CREATION DU SDK BUILDOZER ====="
 
-          echo "===== CREATION DU CHEMIN SDKMANAGER ====="
+          mkdir -p "$SDK"
           mkdir -p "$SDK/tools/bin"
+
+          echo "===== CREATION DES LIENS SDKMANAGER ====="
 
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
@@ -119,15 +167,18 @@ jobs:
             "$SDK/tools/bin/avdmanager"
 
           echo "===== VERIFICATION SDKMANAGER ====="
+
           ls -l "$SDK/tools/bin/sdkmanager"
 
           "$SDK/tools/bin/sdkmanager" --version
 
-          echo "===== INSTALLATION DES OUTILS ANDROID ====="
+          echo "===== ACCEPTATION DES LICENCES ====="
 
           yes | "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
             --licenses || true
+
+          echo "===== INSTALLATION API 35 ====="
 
           "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
@@ -135,22 +186,46 @@ jobs:
             "platforms;android-35" \
             "build-tools;37.0.0"
 
-          echo "===== VERIFICATION AIDL ====="
-          find "$SDK" -name aidl -type f -print
+          echo "===== VERIFICATION API 35 ====="
+
+          ls -la "$SDK/platforms"
 
           echo "===== VERIFICATION BUILD TOOLS ====="
+
           ls -la "$SDK/build-tools/37.0.0"
+
+          echo "===== VERIFICATION AIDL ====="
+
+          find "$SDK" -name aidl -type f -print
 
       - name: Compiler APK
         working-directory: projet
         run: |
-          echo "===== DEBUT COMPILATION APK ====="
+          echo "========================================"
+          echo "        DEBUT COMPILATION APK"
+          echo "========================================"
+
+          echo ""
+          echo "===== API CONFIGUREE ====="
+          grep -n "android.api" buildozer.spec
+
+          echo ""
+          echo "===== LANCEMENT BUILDOZER ====="
+
           buildozer -v android debug
 
       - name: Chercher APK
         run: |
-          echo "===== APK TROUVES ====="
+          echo "========================================"
+          echo "          RECHERCHE DES APK"
+          echo "========================================"
+
           find . -type f -name "*.apk" -print
+
+          echo ""
+          echo "===== CONTENU DE PROJET/BIN ====="
+
+          ls -lah projet/bin/ || true
 
       - name: Recuperer APK
         uses: actions/upload-artifact@v4
