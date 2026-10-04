@@ -43,8 +43,8 @@ jobs:
 
       - name: Configurer Android SDK
         run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
           echo "ANDROIDSDK=$ANDROID_HOME" >> $GITHUB_ENV
-          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
 
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
@@ -56,11 +56,13 @@ jobs:
           echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
           echo "$ANDROID_HOME/build-tools/35.0.0" >> $GITHUB_PATH
 
-      - name: Verifier AIDL
+      - name: Verifier Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "Verification AIDL :"
           find "$ANDROID_HOME" -name aidl -type f
-          echo "AIDL trouve avec succes"
+          echo "Verification build-tools :"
+          ls -la "$ANDROID_HOME/build-tools/35.0.0"
 
       - name: Installer Buildozer
         run: |
@@ -91,6 +93,11 @@ jobs:
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
           sed -i 's/^requirements = .*/requirements = python3,kivy/' buildozer.spec
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
+
+          echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
+
+          echo "===== BUILDОZER.SPEC ====="
+          cat buildozer.spec
 
       - name: Compiler APK
         working-directory: projet
