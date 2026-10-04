@@ -48,8 +48,11 @@ jobs:
 
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
+          echo "===== INSTALLATION DES API ANDROID ====="
+
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platform-tools" \
+            "platforms;android-33" \
             "platforms;android-35" \
             "build-tools;37.0.0"
 
@@ -79,7 +82,7 @@ jobs:
           pip install buildozer
           pip install "cython==0.29.34"
 
-          echo "===== BUILDOZER ====="
+          echo "===== VERSION BUILDOZER ====="
           buildozer --version
 
       - name: Decompresser le projet
@@ -115,28 +118,24 @@ jobs:
 
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
 
-          # API Android
           if grep -q '^android.api =' buildozer.spec; then
             sed -i 's/^android.api = .*/android.api = 35/' buildozer.spec
           else
             echo "android.api = 35" >> buildozer.spec
           fi
 
-          # API minimale
           if grep -q '^android.minapi =' buildozer.spec; then
             sed -i 's/^android.minapi = .*/android.minapi = 24/' buildozer.spec
           else
             echo "android.minapi = 24" >> buildozer.spec
           fi
 
-          # Chemin SDK
           if grep -q '^android.sdk_path =' buildozer.spec; then
             sed -i "s|^android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" buildozer.spec
           else
             echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
           fi
 
-          # Niveau de log
           if grep -q '^log_level =' buildozer.spec; then
             sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
           else
@@ -145,10 +144,14 @@ jobs:
 
           echo ""
           echo "===== PARAMETRES ANDROID ====="
-          grep -nE "android.api|android.minapi|android.sdk_path|log_level" buildozer.spec
+
+          grep -nE \
+            "android.api|android.minapi|android.sdk_path|log_level" \
+            buildozer.spec
 
           echo ""
           echo "===== BUILDOZER.SPEC ====="
+
           cat buildozer.spec
 
       - name: Preparer le SDK Buildozer
@@ -181,11 +184,12 @@ jobs:
             --licenses || true
 
           echo ""
-          echo "===== INSTALLATION API 35 ====="
+          echo "===== INSTALLATION API 33 ET API 35 ====="
 
           "$SDK/tools/bin/sdkmanager" \
             --sdk_root="$SDK" \
             "platform-tools" \
+            "platforms;android-33" \
             "platforms;android-35" \
             "build-tools;37.0.0"
 
@@ -199,7 +203,12 @@ jobs:
 
           find "$SDK/build-tools" -maxdepth 1 -type d -print
 
-      - name: Verifier configuration avant compilation
+          echo ""
+          echo "===== AIDL ====="
+
+          find "$SDK" -name aidl -type f -print
+
+      - name: Verifier configuration
         working-directory: projet
         run: |
 
@@ -208,20 +217,16 @@ jobs:
           echo "========================================"
 
           echo ""
-          echo "===== PARAMETRES ANDROID ====="
+          echo "===== API BUILDOZER ====="
 
-          grep -nE "android.api|android.minapi|android.sdk_path|android.ndk" buildozer.spec || true
+          grep -nE \
+            "android.api|android.minapi|android.sdk_path" \
+            buildozer.spec
 
           echo ""
-          echo "===== RECHERCHE DE API 33 ====="
+          echo "===== API DISPONIBLES ====="
 
-          grep -RniE \
-            "android\.api.*33|api.*33|API.*33" \
-            . \
-            --exclude-dir=.git \
-            --exclude-dir=.buildozer \
-            --exclude="*.pyc" \
-            || true
+          ls -la "$HOME/.buildozer/android/platform/android-sdk/platforms"
 
           echo ""
           echo "===== VERSION BUILDOZER ====="
