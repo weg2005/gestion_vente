@@ -109,13 +109,25 @@ jobs:
       - name: Verifier Android SDK
         run: |
           echo "===== PLATEFORMES ====="
-          find "$ANDROID_HOME/platforms" -maxdepth 1 -type d -print
+
+          find "$ANDROID_HOME/platforms" \
+            -maxdepth 1 \
+            -type d \
+            -print
 
           echo "===== AIDL ====="
-          find "$ANDROID_HOME" -name aidl -type f -print
+
+          find "$ANDROID_HOME" \
+            -name aidl \
+            -type f \
+            -print
 
           echo "===== BUILD TOOLS ====="
-          find "$ANDROID_HOME/build-tools" -maxdepth 1 -type d -print
+
+          find "$ANDROID_HOME/build-tools" \
+            -maxdepth 1 \
+            -type d \
+            -print
 
 
       # --------------------------------------------------
@@ -258,9 +270,15 @@ jobs:
 
           echo "===== SDK PRET ====="
 
-          find "$SDK/platforms" -maxdepth 1 -type d -print
+          find "$SDK/platforms" \
+            -maxdepth 1 \
+            -type d \
+            -print
 
-          find "$SDK/build-tools" -maxdepth 1 -type d -print
+          find "$SDK/build-tools" \
+            -maxdepth 1 \
+            -type d \
+            -print
 
 
       # --------------------------------------------------
@@ -293,8 +311,11 @@ jobs:
       # --------------------------------------------------
       - name: Compiler APK
         working-directory: projet
+        env:
+          # Indique aux Autotools où trouver les macros m4 système
+          # dont les macros Libtool
+          ACLOCAL_PATH: /usr/share/aclocal
         run: |
-
           buildozer -v android debug
 
 
@@ -306,7 +327,10 @@ jobs:
 
           echo "===== APK TROUVEES ====="
 
-          find . -type f -name "*.apk" -print
+          find . \
+            -type f \
+            -name "*.apk" \
+            -print
 
           echo "===== DOSSIER BIN ====="
 
