@@ -10,17 +10,15 @@ jobs:
     steps:
 
       # ============================================================
-      # PROJET
+      # 1. RECUPERER LE PROJET
       # ============================================================
-
       - name: Recuperer le projet
         uses: actions/checkout@v4
 
 
       # ============================================================
-      # PYTHON
+      # 2. PYTHON
       # ============================================================
-
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
@@ -28,9 +26,8 @@ jobs:
 
 
       # ============================================================
-      # JAVA
+      # 3. JAVA
       # ============================================================
-
       - name: Installer Java
         uses: actions/setup-java@v4
         with:
@@ -39,9 +36,8 @@ jobs:
 
 
       # ============================================================
-      # DEPENDANCES LINUX
+      # 4. DEPENDANCES LINUX
       # ============================================================
-
       - name: Installer les dependances Linux
         run: |
           sudo apt-get update
@@ -67,38 +63,34 @@ jobs:
 
 
       # ============================================================
-      # BUILDOZER
+      # 5. BUILDOZER
       # ============================================================
-
       - name: Installer Buildozer
         run: |
           python -m pip install --upgrade pip
 
-          pip install \
-            git+https://github.com/kivy/buildozer.git
+          pip install git+https://github.com/kivy/buildozer.git
 
           pip install legacy-cgi
 
-          pip install \
-            "cython==0.29.34"
+          pip install "cython==0.29.34"
 
           buildozer --version
 
 
       # ============================================================
-      # DECOMPRESSER LE PROJET
+      # 6. DECOMPRESSER LE PROJET
       # ============================================================
-
       - name: Decompresser le projet
         run: |
           mkdir projet
+
           unzip sql_stock.zip -d projet
 
 
       # ============================================================
-      # BUILDOZER SPEC
+      # 7. CREER BUILDOZER.SPEC
       # ============================================================
-
       - name: Creer buildozer.spec
         working-directory: projet
         run: |
@@ -106,113 +98,75 @@ jobs:
 
 
       # ============================================================
-      # CONFIGURATION
+      # 8. CONFIGURER BUILDOZER
       # ============================================================
-
       - name: Configurer Buildozer
         working-directory: projet
         run: |
 
-          sed -i \
-            's/^title = .*/title = Gestion Vente/' \
-            buildozer.spec
+          sed -i 's/^title = .*/title = Gestion Vente/' buildozer.spec
 
-          sed -i \
-            's/^package.name = .*/package.name = gestionvente/' \
-            buildozer.spec
+          sed -i 's/^package.name = .*/package.name = gestionvente/' buildozer.spec
 
-          sed -i \
-            's/^package.domain = .*/package.domain = org.gestion/' \
-            buildozer.spec
+          sed -i 's/^package.domain = .*/package.domain = org.gestion/' buildozer.spec
 
-          sed -i \
-            's/^requirements = .*/requirements = python3,kivy/' \
-            buildozer.spec
+          sed -i 's/^requirements = .*/requirements = python3,kivy/' buildozer.spec
 
-          sed -i \
-            's/^orientation = .*/orientation = portrait/' \
-            buildozer.spec
+          sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
 
-          sed -i \
-            's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' \
-            buildozer.spec
+          sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
 
 
           # API Android
-
           if grep -q '^android.api =' buildozer.spec; then
-            sed -i \
-              's/^android.api = .*/android.api = 35/' \
-              buildozer.spec
+            sed -i 's/^android.api = .*/android.api = 35/' buildozer.spec
           else
             echo "android.api = 35" >> buildozer.spec
           fi
 
 
-          # API minimum
-
+          # API minimale
           if grep -q '^android.minapi =' buildozer.spec; then
-            sed -i \
-              's/^android.minapi = .*/android.minapi = 24/' \
-              buildozer.spec
+            sed -i 's/^android.minapi = .*/android.minapi = 24/' buildozer.spec
           else
             echo "android.minapi = 24" >> buildozer.spec
           fi
 
 
           # NDK
-
           if grep -q '^android.ndk =' buildozer.spec; then
-            sed -i \
-              's/^android.ndk = .*/android.ndk = 28c/' \
-              buildozer.spec
+            sed -i 's/^android.ndk = .*/android.ndk = 28c/' buildozer.spec
           else
             echo "android.ndk = 28c" >> buildozer.spec
           fi
 
 
-          # ========================================================
-          # PYTHON-FOR-ANDROID RECENT
-          # ========================================================
-
+          # Correctif python-for-android
           if grep -q '^p4a.branch =' buildozer.spec; then
-            sed -i \
-              's/^p4a.branch = .*/p4a.branch = develop/' \
-              buildozer.spec
+            sed -i 's/^p4a.branch = .*/p4a.branch = develop/' buildozer.spec
           else
             echo "p4a.branch = develop" >> buildozer.spec
           fi
 
 
-          # Ne PAS utiliser l'ancien commit d2ee8c5.
-          #
-          # Le develop récent contient les corrections
-          # concernant le venv/pip de p4a.
-
           if grep -q '^p4a.commit =' buildozer.spec; then
-            sed -i \
-              's/^p4a.commit = .*/p4a.commit = HEAD/' \
-              buildozer.spec
+            sed -i 's/^p4a.commit = .*/p4a.commit = HEAD/' buildozer.spec
           else
             echo "p4a.commit = HEAD" >> buildozer.spec
           fi
 
 
           # Niveau de log
-
           if grep -q '^log_level =' buildozer.spec; then
-            sed -i \
-              's/^log_level = .*/log_level = 2/' \
-              buildozer.spec
+            sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
           else
             echo "log_level = 2" >> buildozer.spec
           fi
 
 
       # ============================================================
-      # VERIFICATION
+      # 9. AFFICHER LA CONFIGURATION
       # ============================================================
-
       - name: Verifier configuration
         working-directory: projet
         run: |
@@ -227,21 +181,97 @@ jobs:
 
 
       # ============================================================
-      # NETTOYAGE
+      # 10. NETTOYER
       # ============================================================
-
       - name: Nettoyer les anciens fichiers
         working-directory: projet
         run: |
 
           rm -rf .buildozer
+
           rm -rf bin
 
 
       # ============================================================
-      # COMPILATION
+      # 11. PREPARER LE SDK ANDROID
+      #    ACCEPTATION AUTOMATIQUE DES LICENCES
       # ============================================================
+      - name: Preparer le SDK Android automatiquement
+        run: |
 
+          set -e
+
+          SDK="$HOME/.buildozer/android/platform/android-sdk"
+
+          echo "=============================================="
+          echo "PREPARATION DU SDK ANDROID"
+          echo "=============================================="
+
+          mkdir -p "$SDK/tools/bin"
+
+
+          # Relier sdkmanager
+          ln -sf \
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "$SDK/tools/bin/sdkmanager"
+
+
+          # Relier avdmanager
+          ln -sf \
+            "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" \
+            "$SDK/tools/bin/avdmanager"
+
+
+          SDKMANAGER="$SDK/tools/bin/sdkmanager"
+
+
+          echo "=============================================="
+          echo "VERSION SDKMANAGER"
+          echo "=============================================="
+
+          "$SDKMANAGER" --version
+
+
+          echo "=============================================="
+          echo "ACCEPTATION AUTOMATIQUE DES LICENCES"
+          echo "=============================================="
+
+          # Repond automatiquement Y
+          yes | "$SDKMANAGER" \
+            --sdk_root="$SDK" \
+            --licenses || true
+
+
+          echo "=============================================="
+          echo "INSTALLATION DES COMPOSANTS ANDROID"
+          echo "=============================================="
+
+          "$SDKMANAGER" \
+            --sdk_root="$SDK" \
+            "platform-tools" \
+            "platforms;android-33" \
+            "platforms;android-35" \
+            "build-tools;35.0.0" \
+            "build-tools;37.0.0"
+
+
+          echo "=============================================="
+          echo "ACCEPTATION DES LICENCES - VERIFICATION"
+          echo "=============================================="
+
+          yes | "$SDKMANAGER" \
+            --sdk_root="$SDK" \
+            --licenses || true
+
+
+          echo "=============================================="
+          echo "SDK ANDROID PRET"
+          echo "=============================================="
+
+
+      # ============================================================
+      # 12. COMPILATION
+      # ============================================================
       - name: Compiler APK
         working-directory: projet
         env:
@@ -257,9 +287,8 @@ jobs:
 
 
       # ============================================================
-      # CHERCHER APK
+      # 13. CHERCHER LES APK
       # ============================================================
-
       - name: Chercher APK
         if: always()
         run: |
@@ -268,10 +297,7 @@ jobs:
           echo "APK TROUVES"
           echo "=============================================="
 
-          find . \
-            -type f \
-            -name "*.apk" \
-            -print
+          find . -type f -name "*.apk" -print
 
           echo ""
 
@@ -283,9 +309,8 @@ jobs:
 
 
       # ============================================================
-      # RECUPERER APK
+      # 14. RECUPERER L'APK
       # ============================================================
-
       - name: Recuperer APK
         if: success()
         uses: actions/upload-artifact@v4
