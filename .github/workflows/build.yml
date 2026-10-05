@@ -9,15 +9,27 @@ jobs:
 
     steps:
 
+      # ============================================================
+      # PROJET
+      # ============================================================
+
       - name: Recuperer le projet
         uses: actions/checkout@v4
 
+
+      # ============================================================
+      # PYTHON
+      # ============================================================
 
       - name: Installer Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.14"
 
+
+      # ============================================================
+      # JAVA
+      # ============================================================
 
       - name: Installer Java
         uses: actions/setup-java@v4
@@ -26,9 +38,14 @@ jobs:
           java-version: "17"
 
 
-      - name: Installer les outils Linux
+      # ============================================================
+      # DEPENDANCES LINUX
+      # ============================================================
+
+      - name: Installer les dependances Linux
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             git \
             zip \
@@ -49,63 +66,9 @@ jobs:
             libssl-dev
 
 
-      - name: Verifier les outils Autotools
-        run: |
-          autoconf --version
-          automake --version
-          libtool --version
-          libtoolize --version
-
-          find /usr \
-            -name "libtool.m4" \
-            -o -name "lt*.m4" \
-            2>/dev/null | head -50
-
-
-      - name: Configurer Android SDK
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-
-          echo "ANDROIDSDK=$ANDROID_HOME" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$ANDROID_HOME" >> "$GITHUB_ENV"
-
-          yes | \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            --licenses || true
-
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" \
-            "platforms;android-33" \
-            "platforms;android-35" \
-            "build-tools;37.0.0"
-
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          echo "$ANDROID_HOME/build-tools/37.0.0" >> "$GITHUB_PATH"
-
-
-      - name: Verifier Android SDK
-        run: |
-          echo "===== PLATEFORMES ====="
-
-          find "$ANDROID_HOME/platforms" \
-            -maxdepth 1 \
-            -type d \
-            -print
-
-          echo "===== AIDL ====="
-
-          find "$ANDROID_HOME" \
-            -name aidl \
-            -type f \
-            -print
-
-          echo "===== BUILD TOOLS ====="
-
-          find "$ANDROID_HOME/build-tools" \
-            -maxdepth 1 \
-            -type d \
-            -print
-
+      # ============================================================
+      # BUILDOZER
+      # ============================================================
 
       - name: Installer Buildozer
         run: |
@@ -116,12 +79,15 @@ jobs:
 
           pip install legacy-cgi
 
-          pip install setuptools
-
-          pip install "cython==0.29.34"
+          pip install \
+            "cython==0.29.34"
 
           buildozer --version
 
+
+      # ============================================================
+      # DECOMPRESSER LE PROJET
+      # ============================================================
 
       - name: Decompresser le projet
         run: |
@@ -129,11 +95,19 @@ jobs:
           unzip sql_stock.zip -d projet
 
 
+      # ============================================================
+      # BUILDOZER SPEC
+      # ============================================================
+
       - name: Creer buildozer.spec
         working-directory: projet
         run: |
           buildozer init
 
+
+      # ============================================================
+      # CONFIGURATION
+      # ============================================================
 
       - name: Configurer Buildozer
         working-directory: projet
@@ -152,10 +126,6 @@ jobs:
             buildozer.spec
 
           sed -i \
-            's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' \
-            buildozer.spec
-
-          sed -i \
             's/^requirements = .*/requirements = python3,kivy/' \
             buildozer.spec
 
@@ -163,6 +133,12 @@ jobs:
             's/^orientation = .*/orientation = portrait/' \
             buildozer.spec
 
+          sed -i \
+            's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' \
+            buildozer.spec
+
+
+          # API Android
 
           if grep -q '^android.api =' buildozer.spec; then
             sed -i \
@@ -173,6 +149,8 @@ jobs:
           fi
 
 
+          # API minimum
+
           if grep -q '^android.minapi =' buildozer.spec; then
             sed -i \
               's/^android.minapi = .*/android.minapi = 24/' \
@@ -182,14 +160,7 @@ jobs:
           fi
 
 
-          if grep -q '^android.sdk_path =' buildozer.spec; then
-            sed -i \
-              "s|^android.sdk_path = .*|android.sdk_path = $ANDROID_HOME|" \
-              buildozer.spec
-          else
-            echo "android.sdk_path = $ANDROID_HOME" >> buildozer.spec
-          fi
-
+          # NDK
 
           if grep -q '^android.ndk =' buildozer.spec; then
             sed -i \
@@ -200,6 +171,10 @@ jobs:
           fi
 
 
+          # ========================================================
+          # PYTHON-FOR-ANDROID RECENT
+          # ========================================================
+
           if grep -q '^p4a.branch =' buildozer.spec; then
             sed -i \
               's/^p4a.branch = .*/p4a.branch = develop/' \
@@ -209,14 +184,21 @@ jobs:
           fi
 
 
+          # Ne PAS utiliser l'ancien commit d2ee8c5.
+          #
+          # Le develop récent contient les corrections
+          # concernant le venv/pip de p4a.
+
           if grep -q '^p4a.commit =' buildozer.spec; then
             sed -i \
-              's/^p4a.commit = .*/p4a.commit = d2ee8c5/' \
+              's/^p4a.commit = .*/p4a.commit = HEAD/' \
               buildozer.spec
           else
-            echo "p4a.commit = d2ee8c5" >> buildozer.spec
+            echo "p4a.commit = HEAD" >> buildozer.spec
           fi
 
+
+          # Niveau de log
 
           if grep -q '^log_level =' buildozer.spec; then
             sed -i \
@@ -227,287 +209,38 @@ jobs:
           fi
 
 
+      # ============================================================
+      # VERIFICATION
+      # ============================================================
+
       - name: Verifier configuration
         working-directory: projet
         run: |
+
+          echo "=============================================="
+          echo "CONFIGURATION BUILDOZER"
+          echo "=============================================="
+
           grep -nE \
-            "title|package.name|package.domain|requirements|orientation|android.api|android.minapi|android.ndk|p4a.branch|p4a.commit|android.sdk_path|log_level" \
+            "title|package.name|package.domain|requirements|orientation|android.api|android.minapi|android.ndk|p4a.branch|p4a.commit|log_level" \
             buildozer.spec
 
 
-      - name: Preparer le SDK Buildozer
-        run: |
+      # ============================================================
+      # NETTOYAGE
+      # ============================================================
 
-          SDK="$HOME/.buildozer/android/platform/android-sdk"
-
-          mkdir -p "$SDK/tools/bin"
-
-          ln -sf \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "$SDK/tools/bin/sdkmanager"
-
-          ln -sf \
-            "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" \
-            "$SDK/tools/bin/avdmanager"
-
-
-          echo "===== SDKMANAGER ====="
-
-          "$SDK/tools/bin/sdkmanager" --version
-
-
-          echo "===== LICENCES ====="
-
-          yes | \
-            "$SDK/tools/bin/sdkmanager" \
-            --sdk_root="$SDK" \
-            --licenses || true
-
-
-          echo "===== INSTALLATION SDK ====="
-
-          "$SDK/tools/bin/sdkmanager" \
-            --sdk_root="$SDK" \
-            "platform-tools" \
-            "platforms;android-33" \
-            "platforms;android-35" \
-            "build-tools;37.0.0"
-
-
-      - name: Nettoyer ancien environnement
+      - name: Nettoyer les anciens fichiers
         working-directory: projet
         run: |
+
           rm -rf .buildozer
           rm -rf bin
 
 
-      - name: Initialiser Python-for-Android
-        working-directory: projet
-        run: |
-
-          echo "=================================================="
-          echo "PREPARATION DE PYTHON-FOR-ANDROID"
-          echo "=================================================="
-
-          buildozer android debug 2>&1 | \
-            tee /tmp/buildozer_initialisation.log \
-            || true
-
-          echo ""
-          echo "=================================================="
-          echo "DERNIERES LIGNES DE L'INITIALISATION"
-          echo "=================================================="
-
-          tail -150 /tmp/buildozer_initialisation.log || true
-
-          echo ""
-          echo "=================================================="
-          echo "FIN INITIALISATION"
-          echo "=================================================="
-
-
-      - name: Rechercher et reparer le pip interne de P4A
-        working-directory: projet
-        run: |
-
-          echo "=============================================="
-          echo "RECHERCHE DE L'ENVIRONNEMENT P4A"
-          echo "=============================================="
-
-
-          echo ""
-          echo "===== DOSSIERS BUILDOZER ====="
-
-          find .buildozer \
-            -maxdepth 12 \
-            -type d \
-            -print \
-            2>/dev/null | head -200 || true
-
-
-          echo ""
-          echo "===== PYTHON ====="
-
-          find .buildozer \
-            -type f \
-            \
-              -name "python" \
-              -o -name "python3" \
-            \
-            -print \
-            2>/dev/null || true
-
-
-          echo ""
-          echo "===== PIP ====="
-
-          find .buildozer \
-            -type f \
-            \
-              -name "pip" \
-              -o -name "pip3" \
-            \
-            -print \
-            2>/dev/null || true
-
-
-          echo ""
-          echo "=============================================="
-          echo "RECHERCHE DU VENV P4A"
-          echo "=============================================="
-
-
-          VENV=$(find .buildozer \
-            -type f \
-            \
-              -path "*/bin/python" \
-              -o \
-              -path "*/bin/python3" \
-            \
-            -print \
-            2>/dev/null | head -1)
-
-
-          if [ -z "$VENV" ]; then
-
-            echo ""
-            echo "Aucun environnement Python P4A trouve."
-            echo ""
-            echo "Le buildozer a peut-etre utilise une autre structure."
-            echo "Nous ne bloquons PAS le workflow."
-
-          else
-
-            echo ""
-            echo "Python P4A trouve :"
-            echo "$VENV"
-
-
-            echo ""
-            echo "===== VERSION PYTHON ====="
-
-            "$VENV" --version
-
-
-            echo ""
-            echo "===== PIP AVANT REPARATION ====="
-
-            "$VENV" -m pip --version || true
-
-
-            echo ""
-            echo "===== REINSTALLATION PIP 25.3 ====="
-
-            "$VENV" -m ensurepip --upgrade || true
-
-            "$VENV" -m pip install \
-              --force-reinstall \
-              --no-cache-dir \
-              "pip==25.3"
-
-
-            echo ""
-            echo "===== SETUPTOOLS + WHEEL ====="
-
-            "$VENV" -m pip install \
-              --force-reinstall \
-              --no-cache-dir \
-              setuptools \
-              wheel
-
-
-            echo ""
-            echo "===== VERIFICATION ====="
-
-            "$VENV" -m pip --version
-
-
-            "$VENV" -c "
-            import pip
-            print('PIP VERSION:', pip.__version__)
-            from pip._internal.exceptions import BuildDependencyInstallError
-            print('BuildDependencyInstallError : OK')
-            "
-
-          fi
-
-
-          echo ""
-          echo "=============================================="
-          echo "FIN RECHERCHE / REPARATION"
-          echo "=============================================="
-
-
-      - name: Rechercher charset_normalizer apres initialisation
-        working-directory: projet
-        run: |
-
-          echo "=========================================================="
-          echo "RECHERCHE CHARSET_NORMALIZER"
-          echo "=========================================================="
-
-
-          P4A="$HOME/.buildozer/android/platform/python-for-android"
-
-
-          echo ""
-          echo "===== 1. PYTHON-FOR-ANDROID ====="
-
-          if [ -d "$P4A" ]; then
-
-            grep -RniE \
-              "charset[_-]normalizer" \
-              "$P4A" \
-              2>/dev/null \
-              || echo "Aucune reference."
-
-          else
-
-            echo "P4A introuvable."
-
-          fi
-
-
-          echo ""
-          echo "===== 2. RECETTES ====="
-
-          if [ -d "$P4A/pythonforandroid/recipes" ]; then
-
-            grep -RniE \
-              "charset[_-]normalizer" \
-              "$P4A/pythonforandroid/recipes" \
-              2>/dev/null \
-              || echo "Aucune reference dans les recettes."
-
-          fi
-
-
-          echo ""
-          echo "===== 3. TOUT .BUILDOZER ====="
-
-          grep -RniE \
-            "charset[_-]normalizer" \
-            "$HOME/.buildozer" \
-            2>/dev/null \
-            || echo "Aucune reference dans .buildozer."
-
-
-          echo ""
-          echo "===== 4. WHEELS ====="
-
-          find "$HOME/.buildozer" \
-            -type f \
-            \
-              -iname "*charset*" \
-              -o -iname "*normalizer*" \
-            \
-            -print \
-            2>/dev/null || true
-
-
-          echo ""
-          echo "===== FIN RECHERCHE ====="
-
+      # ============================================================
+      # COMPILATION
+      # ============================================================
 
       - name: Compiler APK
         working-directory: projet
@@ -516,18 +249,24 @@ jobs:
           LIBTOOLIZE: libtoolize
         run: |
 
-          echo "=================================================="
+          echo "=============================================="
           echo "COMPILATION APK"
-          echo "=================================================="
+          echo "=============================================="
 
           buildozer -v android debug
 
+
+      # ============================================================
+      # CHERCHER APK
+      # ============================================================
 
       - name: Chercher APK
         if: always()
         run: |
 
-          echo "===== APK TROUVES ====="
+          echo "=============================================="
+          echo "APK TROUVES"
+          echo "=============================================="
 
           find . \
             -type f \
@@ -536,4 +275,21 @@ jobs:
 
           echo ""
 
-          echo "=====
+          echo "=============================================="
+          echo "DOSSIER BIN"
+          echo "=============================================="
+
+          ls -lah projet/bin/ || true
+
+
+      # ============================================================
+      # RECUPERER APK
+      # ============================================================
+
+      - name: Recuperer APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gestion-vente-apk
+          path: projet/bin/*.apk
+          if-no-files-found: error
