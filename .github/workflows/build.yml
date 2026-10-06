@@ -20,16 +20,16 @@ jobs:
       # 2. PYTHON
       # ============================================================
       - name: Installer Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.14"
+          python-version: "3.13"
 
 
       # ============================================================
       # 3. JAVA
       # ============================================================
       - name: Installer Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
@@ -63,7 +63,7 @@ jobs:
 
 
       # ============================================================
-      # 5. BUILDOZER
+      # 5. INSTALLER BUILDOZER
       # ============================================================
       - name: Installer Buildozer
         run: |
@@ -110,14 +110,20 @@ jobs:
 
           sed -i 's/^package.domain = .*/package.domain = org.gestion/' buildozer.spec
 
-          sed -i 's/^requirements = .*/requirements = python3,kivy/' buildozer.spec
+          # IMPORTANT :
+          # charset-normalizer est volontairement bloque
+          # sur une version compatible.
+          sed -i 's/^requirements = .*/requirements = python3,kivy,charset-normalizer==3.4.9/' buildozer.spec
 
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
 
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
 
 
-          # API Android
+          # ========================================================
+          # API ANDROID
+          # ========================================================
+
           if grep -q '^android.api =' buildozer.spec; then
             sed -i 's/^android.api = .*/android.api = 35/' buildozer.spec
           else
@@ -125,7 +131,10 @@ jobs:
           fi
 
 
-          # API minimale
+          # ========================================================
+          # API MINIMALE
+          # ========================================================
+
           if grep -q '^android.minapi =' buildozer.spec; then
             sed -i 's/^android.minapi = .*/android.minapi = 24/' buildozer.spec
           else
@@ -133,7 +142,10 @@ jobs:
           fi
 
 
+          # ========================================================
           # NDK
+          # ========================================================
+
           if grep -q '^android.ndk =' buildozer.spec; then
             sed -i 's/^android.ndk = .*/android.ndk = 28c/' buildozer.spec
           else
@@ -141,7 +153,10 @@ jobs:
           fi
 
 
-          # Correctif python-for-android
+          # ========================================================
+          # PYTHON-FOR-ANDROID
+          # ========================================================
+
           if grep -q '^p4a.branch =' buildozer.spec; then
             sed -i 's/^p4a.branch = .*/p4a.branch = develop/' buildozer.spec
           else
@@ -156,7 +171,10 @@ jobs:
           fi
 
 
-          # Niveau de log
+          # ========================================================
+          # LOG
+          # ========================================================
+
           if grep -q '^log_level =' buildozer.spec; then
             sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
           else
@@ -188,13 +206,12 @@ jobs:
         run: |
 
           rm -rf .buildozer
-
           rm -rf bin
 
 
       # ============================================================
       # 11. PREPARER LE SDK ANDROID
-      #    ACCEPTATION AUTOMATIQUE DES LICENCES
+      #     LICENCES AUTOMATIQUES
       # ============================================================
       - name: Preparer le SDK Android automatiquement
         run: |
@@ -210,13 +227,13 @@ jobs:
           mkdir -p "$SDK/tools/bin"
 
 
-          # Relier sdkmanager
+          # sdkmanager
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "$SDK/tools/bin/sdkmanager"
 
 
-          # Relier avdmanager
+          # avdmanager
           ln -sf \
             "$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager" \
             "$SDK/tools/bin/avdmanager"
@@ -236,14 +253,13 @@ jobs:
           echo "ACCEPTATION AUTOMATIQUE DES LICENCES"
           echo "=============================================="
 
-          # Repond automatiquement Y
           yes | "$SDKMANAGER" \
             --sdk_root="$SDK" \
             --licenses || true
 
 
           echo "=============================================="
-          echo "INSTALLATION DES COMPOSANTS ANDROID"
+          echo "INSTALLATION DES COMPOSANTS"
           echo "=============================================="
 
           "$SDKMANAGER" \
@@ -256,7 +272,7 @@ jobs:
 
 
           echo "=============================================="
-          echo "ACCEPTATION DES LICENCES - VERIFICATION"
+          echo "VERIFICATION DES LICENCES"
           echo "=============================================="
 
           yes | "$SDKMANAGER" \
@@ -264,9 +280,7 @@ jobs:
             --licenses || true
 
 
-          echo "=============================================="
           echo "SDK ANDROID PRET"
-          echo "=============================================="
 
 
       # ============================================================
@@ -287,7 +301,7 @@ jobs:
 
 
       # ============================================================
-      # 13. CHERCHER LES APK
+      # 13. CHERCHER APK
       # ============================================================
       - name: Chercher APK
         if: always()
@@ -309,7 +323,7 @@ jobs:
 
 
       # ============================================================
-      # 14. RECUPERER L'APK
+      # 14. RECUPERER APK
       # ============================================================
       - name: Recuperer APK
         if: success()
