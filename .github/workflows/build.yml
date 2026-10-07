@@ -64,11 +64,10 @@ jobs:
 
 
       # ============================================================
-      # 5. VERROUILLER PIP STABLE (<24.1), BUILDOZER ET CYTHON
+      # 5. FIXATION STRICTE DE PIP, BUILDOZER ET CYTHON
       # ============================================================
       - name: Installer Buildozer et Cython avec PIP stable
         run: |
-          # Verrouillage critique de pip sous la version 24.1 pour éviter la rupture de 'open_rich_spinner'
           python -m pip install "pip<24.1" "setuptools<70.0.0" wheel
           pip install buildozer
           pip install "cython<3.1.0"
@@ -193,7 +192,7 @@ jobs:
 
 
       # ============================================================
-      # 10. COMPILATION APK (BLOCAGE DES MISES À JOUR DE PIP)
+      # 10. COMPILATION APK (NEUTRALISATION COMPLÈTE DU PIP INTERNE)
       # ============================================================
       - name: Compiler APK
         working-directory: projet
@@ -204,14 +203,19 @@ jobs:
         run: |
 
           echo "================================================="
-          echo "DÉBUT DE LA COMPILATION APK"
+          echo "PATCH DU CODE SOURCE PYTHON-FOR-ANDROID"
           echo "================================================="
 
-          # Patch préventif du script python-for-android pour empêcher la mise à jour forcée de pip dans le venv
-          P4A_DIR=$(python -c "import site; print(site.getsitepackages()[0])")/pythonforandroid
-          if [ -d "$P4A_DIR" ]; then
-            find "$P4A_DIR" -type f -exec sed -i 's/pip install -U pip/pip install "pip<24.1"/g' {} +
-          fi
+          # Patch global sur tout le package pythonforandroid
+          PYTHON_LIB=$(python -c "import site; print(site.getsitepackages()[0])")
+          
+          # Interception de la commande de mise à jour pip dans p4a
+          grep -rl "pip install -U pip" "$PYTHON_LIB" | xargs -r sed -i 's/pip install -U pip/pip install "pip<24.1"/g'
+          grep -rl "pip install --upgrade pip" "$PYTHON_LIB" | xargs -r sed -i 's/pip install --upgrade pip/pip install "pip<24.1"/g'
+
+          echo "================================================="
+          echo "DÉBUT DE LA COMPILATION APK"
+          echo "================================================="
 
           buildozer -v android debug
 
