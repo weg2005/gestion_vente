@@ -90,7 +90,7 @@ jobs:
 
 
       # ============================================================
-      # 6. DÉCOMPRESSER LE PROJET & SUPPRIMER LES DÉCHETS DU ZIP
+      # 6. DÉCOMPRESSER LE PROJET & PURGER LES DÉCHETS DU ZIP
       # ============================================================
       - name: Décompresser le projet et purger le ZIP
         run: |
@@ -141,7 +141,7 @@ jobs:
 
 
           # --------------------------------------------------------
-          # API ANDROID ET NDK (Versions de production ultra-stables)
+          # API ANDROID ET NDK (Versions ultra-stables)
           # --------------------------------------------------------
           if grep -q '^android.api =' buildozer.spec; then
             sed -i 's/^android.api = .*/android.api = 33/' buildozer.spec
@@ -182,7 +182,26 @@ jobs:
 
 
       # ============================================================
-      # 9. COMPILATION APK
+      # 9. ACCEPTER LES LICENCES ANDROID AUTOMATIQUEMENT
+      # ============================================================
+      - name: Accepter les licences Android SDK
+        run: |
+          mkdir -p "$HOME/.android"
+          touch "$HOME/.android/repositories.cfg"
+
+          # Accepte toutes les licences dans le SDK hôte
+          if [ -d "$ANDROID_HOME/cmdline-tools/latest/bin" ]; then
+            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          fi
+
+          # Génération préventive des clés de licences pour Buildozer
+          mkdir -p "$HOME/.buildozer/android/platform/android-sdk/licenses"
+          echo -e "\n89330d222637a000b01f7e9f4a3f656c78f4382f\nd56f5187479451eabf01fb78af6dfcb131a6481e\n2433373577d3e887a181e5a4af937d15d0433c50" > "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-license"
+          echo -e "\n84831b94fe1430d75d55046884d77649db190779" > "$HOME/.buildozer/android/platform/android-sdk/licenses/android-sdk-preview-license"
+
+
+      # ============================================================
+      # 10. COMPILATION APK
       # ============================================================
       - name: Compiler APK
         working-directory: projet
@@ -199,7 +218,7 @@ jobs:
 
 
       # ============================================================
-      # 10. RÉCUPÉRER L'APK
+      # 11. RÉCUPÉRER L'APK
       # ============================================================
       - name: Récupérer APK
         if: success()
