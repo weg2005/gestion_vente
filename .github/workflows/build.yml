@@ -1,4 +1,4 @@
-Name: Compilateur APK Kivy
+name: Compilateur APK Kivy
 
 on:
   workflow_dispatch:
