@@ -69,7 +69,6 @@ jobs:
       - name: Installer Buildozer et Cython
         run: |
           python -m pip install --upgrade pip
-
           pip install buildozer
           pip install "cython<3.1.0"
           pip install legacy-cgi
@@ -84,7 +83,7 @@ jobs:
 
           unzip -o sql_stock.zip -d projet
 
-          # Suppression forcée des résidus
+          # Suppression forcée des répertoires du ZIP
           find projet -name ".buildozer" -type d -exec rm -rf {} +
           find projet -name ".bin" -type d -exec rm -rf {} +
 
@@ -110,7 +109,7 @@ jobs:
           sed -i 's/^package.name = .*/package.name = gestionvente/' buildozer.spec
           sed -i 's/^package.domain = .*/package.domain = org.gestion/' buildozer.spec
 
-          # DÉPENDANCES : Alignement obligatoire de hostpython3 et python3 sur la 3.11.0
+          # DÉPENDANCES
           sed -i 's/^requirements = .*/requirements = hostpython3==3.11.0,python3==3.11.0,kivy/' buildozer.spec
 
           # Orientation & Fichiers
@@ -157,7 +156,7 @@ jobs:
 
 
       # ============================================================
-      # 9. PRÉPARER LE SDK, LICENCES & BUILD-TOOLS (Correction aidl / sdkmanager)
+      # 9. PRÉPARER LE SDK ANDROID ET LES LICENCES
       # ============================================================
       - name: Configuration du SDK Android
         run: |
@@ -168,17 +167,17 @@ jobs:
           mkdir -p "$HOME/.android"
           touch "$HOME/.android/repositories.cfg"
 
-          # 1. Installation des commandline-tools
+          # 1. Commandline tools
           curl -sS -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q cmdline-tools.zip -d "$SDK_DIR/cmdline-tools"
           mv "$SDK_DIR/cmdline-tools/cmdline-tools" "$SDK_DIR/cmdline-tools/latest"
           rm cmdline-tools.zip
 
-          # 2. Liens symboliques pour compatibilité Buildozer
+          # 2. Liens symboliques
           ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
           ln -sf "$SDK_DIR/cmdline-tools/latest/bin/avdmanager" "$SDK_DIR/tools/bin/avdmanager"
 
-          # 3. Injection préventive des Hashes de Licences
+          # 3. Licences
           LICENSES_CONTENT="\n89330d222637a000b01f7e9f4a3f656c78f4382f\nd56f5187479451eabf01fb78af6dfcb131a6481e\n2433373577d3e887a181e5a4af937d15d0433c50\ncd5010c71487d008b8b70f074d23258832a82390"
           PREVIEW_CONTENT="\n84831b94fe1430d75d55046884d77649db190779"
 
@@ -188,18 +187,21 @@ jobs:
           # 4. Acceptation globale
           yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" --licenses || true
 
-          # 5. Pré-installation pour générer build-tools et 'aidl'
+          # 5. Pré-installation build-tools
           "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "platforms;android-33" "build-tools;33.0.2" "platform-tools"
 
 
       # ============================================================
-      # 10. COMPILATION APK
+      # 10. COMPILATION APK (VERROUILLAGE DÉFINITIF DE PIP)
       # ============================================================
       - name: Compiler APK
         working-directory: projet
         env:
           ACLOCAL_PATH: /usr/share/aclocal:/usr/share/libtool/m4
           LIBTOOLIZE: libtoolize
+          # VARIABLE CLÉ : Empêche Python-for-Android d'exécuter "pip install -U pip"
+          P4A_PIP_NO_AUTO_UPDATE: "1"
+          PIP_DISABLE_PIP_VERSION_CHECK: "1"
         run: |
 
           echo "================================================="
