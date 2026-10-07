@@ -127,7 +127,7 @@ jobs:
 
 
           # --------------------------------------------------------
-          # API ANDROID ET NDK (Versions ultra-stables)
+          # API ANDROID, BUILD-TOOLS ET NDK (Verrouillage stable)
           # --------------------------------------------------------
           if grep -q '^android.api =' buildozer.spec; then
             sed -i 's/^android.api = .*/android.api = 33/' buildozer.spec
@@ -145,6 +145,13 @@ jobs:
             sed -i 's/^android.ndk = .*/android.ndk = 25b/' buildozer.spec
           else
             echo "android.ndk = 25b" >> buildozer.spec
+          fi
+
+          # Verrouillage explicite de build_tools_version sur 33.0.2 pour éviter la version 37.0.0 instable
+          if grep -q '^android.build_tools_version =' buildozer.spec; then
+            sed -i 's/^android.build_tools_version = .*/android.build_tools_version = 33.0.2/' buildozer.spec
+          else
+            echo "android.build_tools_version = 33.0.2" >> buildozer.spec
           fi
 
 
@@ -168,36 +175,39 @@ jobs:
 
 
       # ============================================================
-      # 9. INSTALLER ET CORRIGER LE SDK ANDROID (RÉSOLUT L'ERREUR)
+      # 9. PRÉPARER LE SDK, ACCEPTER LES LICENCES & PRÉ-INSTALLER BUILD-TOOLS
       # ============================================================
-      - name: Préparer le SDK Android et créer les liens symboliques
+      - name: Configuration complète du SDK Android
         run: |
           SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
           mkdir -p "$SDK_DIR/cmdline-tools"
           mkdir -p "$SDK_DIR/tools/bin"
+          mkdir -p "$SDK_DIR/licenses"
           mkdir -p "$HOME/.android"
           touch "$HOME/.android/repositories.cfg"
 
-          # Téléchargement des Command Line Tools Android officiels
+          # 1. Installation des commandline-tools
           curl -sS -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q cmdline-tools.zip -d "$SDK_DIR/cmdline-tools"
           mv "$SDK_DIR/cmdline-tools/cmdline-tools" "$SDK_DIR/cmdline-tools/latest"
           rm cmdline-tools.zip
 
-          # Création des liens symboliques vers tools/bin pour Buildozer
+          # 2. Liens symboliques pour compatibilité Buildozer
           ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
           ln -sf "$SDK_DIR/cmdline-tools/latest/bin/avdmanager" "$SDK_DIR/tools/bin/avdmanager"
 
-          # Validation automatique des licences Android
-          yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" --licenses || true
-
-          # Injection préventive des signatures de licence
-          mkdir -p "$SDK_DIR/licenses"
+          # 3. Injection préventive des Hashes de Licences Officiels
           LICENSES_CONTENT="\n89330d222637a000b01f7e9f4a3f656c78f4382f\nd56f5187479451eabf01fb78af6dfcb131a6481e\n2433373577d3e887a181e5a4af937d15d0433c50\ncd5010c71487d008b8b70f074d23258832a82390"
           PREVIEW_CONTENT="\n84831b94fe1430d75d55046884d77649db190779"
 
           echo -e "$LICENSES_CONTENT" > "$SDK_DIR/licenses/android-sdk-license"
           echo -e "$PREVIEW_CONTENT" > "$SDK_DIR/licenses/android-sdk-preview-license"
+
+          # 4. Acceptation globale automatique
+          yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" --licenses || true
+
+          # 5. Pré-installation forcée des composants pour créer le dossier build-tools et valider 'aidl'
+          "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "platforms;android-33" "build-tools;33.0.2" "platform-tools"
 
 
       # ============================================================
