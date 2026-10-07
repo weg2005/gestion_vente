@@ -59,7 +59,8 @@ jobs:
             libncursesw5-dev \
             cmake \
             libffi-dev \
-            libssl-dev
+            libssl-dev \
+            curl
 
 
       # ============================================================
@@ -83,7 +84,7 @@ jobs:
 
           unzip -o sql_stock.zip -d projet
 
-          # SUPPRESSION FORCEE des dossiers cachés corrompus venus du ZIP
+          # SUPPRESSION FORCÉE des dossiers cachés venus du ZIP
           find projet -name ".buildozer" -type d -exec rm -rf {} +
           find projet -name ".bin" -type d -exec rm -rf {} +
 
@@ -167,32 +168,36 @@ jobs:
 
 
       # ============================================================
-      # 9. VALIDER AUTOMATIQUEMENT TOUTES LES LICENCES ANDROID
+      # 9. INSTALLER ET CORRIGER LE SDK ANDROID (RÉSOLUT L'ERREUR)
       # ============================================================
-      - name: Accepter toutes les licences Android
+      - name: Préparer le SDK Android et créer les liens symboliques
         run: |
           SDK_DIR="$HOME/.buildozer/android/platform/android-sdk"
-          
-          # Création des structures de dossiers nécessaires
-          mkdir -p "$SDK_DIR/licenses"
-          mkdir -p "$ANDROID_HOME/licenses"
+          mkdir -p "$SDK_DIR/cmdline-tools"
+          mkdir -p "$SDK_DIR/tools/bin"
           mkdir -p "$HOME/.android"
           touch "$HOME/.android/repositories.cfg"
 
-          # Injection directe des hashes de licences officielles Google Android
-          # pour désactiver l'invite interactive (y/N) peu importe la version installée (y compris 37.0.0)
-          
-          LICENSES_FILE_CONTENT="\n89330d222637a000b01f7e9f4a3f656c78f4382f\nd56f5187479451eabf01fb78af6dfcb131a6481e\n2433373577d3e887a181e5a4af937d15d0433c50\ncd5010c71487d008b8b70f074d23258832a82390"
+          # Téléchargement des Command Line Tools Android officiels
+          curl -sS -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          unzip -q cmdline-tools.zip -d "$SDK_DIR/cmdline-tools"
+          mv "$SDK_DIR/cmdline-tools/cmdline-tools" "$SDK_DIR/cmdline-tools/latest"
+          rm cmdline-tools.zip
+
+          # Création des liens symboliques vers tools/bin pour Buildozer
+          ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
+          ln -sf "$SDK_DIR/cmdline-tools/latest/bin/avdmanager" "$SDK_DIR/tools/bin/avdmanager"
+
+          # Validation automatique des licences Android
+          yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" --licenses || true
+
+          # Injection préventive des signatures de licence
+          mkdir -p "$SDK_DIR/licenses"
+          LICENSES_CONTENT="\n89330d222637a000b01f7e9f4a3f656c78f4382f\nd56f5187479451eabf01fb78af6dfcb131a6481e\n2433373577d3e887a181e5a4af937d15d0433c50\ncd5010c71487d008b8b70f074d23258832a82390"
           PREVIEW_CONTENT="\n84831b94fe1430d75d55046884d77649db190779"
 
-          echo -e "$LICENSES_FILE_CONTENT" > "$SDK_DIR/licenses/android-sdk-license"
+          echo -e "$LICENSES_CONTENT" > "$SDK_DIR/licenses/android-sdk-license"
           echo -e "$PREVIEW_CONTENT" > "$SDK_DIR/licenses/android-sdk-preview-license"
-          
-          echo -e "$LICENSES_FILE_CONTENT" > "$ANDROID_HOME/licenses/android-sdk-license"
-          echo -e "$PREVIEW_CONTENT" > "$ANDROID_HOME/licenses/android-sdk-preview-license"
-
-          # Valide aussi de manière globale via le sdkmanager du système
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
 
       # ============================================================
