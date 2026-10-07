@@ -64,9 +64,9 @@ jobs:
 
 
       # ============================================================
-      # 5. FIXATION STRICTE DE PIP, BUILDOZER ET CYTHON
+      # 5. INSTALLATION INITIALE
       # ============================================================
-      - name: Installer Buildozer et Cython avec PIP stable
+      - name: Installer Buildozer et Cython
         run: |
           python -m pip install "pip<24.1" "setuptools<70.0.0" wheel
           pip install buildozer
@@ -75,7 +75,7 @@ jobs:
 
 
       # ============================================================
-      # 6. DÉCOMPRESSER LE PROJET & PURGER LES DÉCHETS DU ZIP
+      # 6. DÉCOMPRESSER LE PROJET & PURGER LE ZIP
       # ============================================================
       - name: Décompresser le projet et purger le ZIP
         run: |
@@ -192,30 +192,32 @@ jobs:
 
 
       # ============================================================
-      # 10. COMPILATION APK (NEUTRALISATION COMPLÈTE DU PIP INTERNE)
+      # 10. COMPILATION APK (FORÇAGE DES CONTRAINTES PIP GLOBALES)
       # ============================================================
       - name: Compiler APK
         working-directory: projet
-        env:
-          ACLOCAL_PATH: /usr/share/aclocal:/usr/share/libtool/m4
-          LIBTOOLIZE: libtoolize
-          PIP_DISABLE_PIP_VERSION_CHECK: "1"
         run: |
 
           echo "================================================="
-          echo "PATCH DU CODE SOURCE PYTHON-FOR-ANDROID"
+          echo "CRÉATION DES CONTRAINTES GLOBALES PIP"
           echo "================================================="
 
-          # Patch global sur tout le package pythonforandroid
+          # Création d'un fichier de contraintes universel
+          echo "pip<24.1" > /tmp/pip_constraints.txt
+          echo "setuptools<70.0.0" >> /tmp/pip_constraints.txt
+
+          # Patch global de pythonforandroid dans l'environnement courant
           PYTHON_LIB=$(python -c "import site; print(site.getsitepackages()[0])")
-          
-          # Interception de la commande de mise à jour pip dans p4a
-          grep -rl "pip install -U pip" "$PYTHON_LIB" | xargs -r sed -i 's/pip install -U pip/pip install "pip<24.1"/g'
-          grep -rl "pip install --upgrade pip" "$PYTHON_LIB" | xargs -r sed -i 's/pip install --upgrade pip/pip install "pip<24.1"/g'
+          grep -rl "pip install" "$PYTHON_LIB" | xargs -r sed -i 's/pip install/pip install -c \/tmp\/pip_constraints.txt/g' || true
 
           echo "================================================="
           echo "DÉBUT DE LA COMPILATION APK"
           echo "================================================="
+
+          # PIP_CONSTRAINT force toutes les instances de pip créées ultérieurement à respecter cette règle
+          export PIP_CONSTRAINT="/tmp/pip_constraints.txt"
+          export ACLOCAL_PATH="/usr/share/aclocal:/usr/share/libtool/m4"
+          export LIBTOOLIZE="libtoolize"
 
           buildozer -v android debug
 
