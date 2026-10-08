@@ -8,28 +8,32 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+
       # ============================================================
       # 1. RÉCUPÉRER LE PROJET
       # ============================================================
       - name: Récupérer le projet
         uses: actions/checkout@v4
 
+
       # ============================================================
       # 2. PYTHON HÔTE (Python 3.11)
       # ============================================================
-      - name: Programme d'installation de Python 3.11
+      - name: Installer Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
+
       # ============================================================
       # 3. JAVA 17
       # ============================================================
-      - name: Programme d'installation Java 17
+      - name: Installer Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
+
 
       # ============================================================
       # 4. DÉPENDANCES LINUX
@@ -37,6 +41,7 @@ jobs:
       - name: Installer les dépendances Linux
         run: |
           sudo apt-get update
+
           sudo apt-get install -y \
             git \
             zip \
@@ -57,26 +62,50 @@ jobs:
             libssl-dev \
             curl
 
+
       # ============================================================
-      # 5. INSTALLATION INITIALE
+      # 5. INSTALLATION INITIALE DES OUTILS
       # ============================================================
-      - name: Installateur Buildozer et Cython
+      - name: Installer Buildozer et Cython
         run: |
           python -m pip install "pip<24.1" "setuptools<70.0.0" wheel
           pip install buildozer
           pip install "cython<3.1.0"
           pip install legacy-cgi
 
+
       # ============================================================
-      # 6. DÉCOMPRESSER LE PROJET & PURGER LE ZIP
+      # 6. DÉCOMPRESSER LE PROJET ET PRÉPARER MAIN.PY
       # ============================================================
-      - name: Décompresser le projet et purger le ZIP
+      - name: Décompresser le projet et préparer main.py
         run: |
           mkdir -p projet
+
           unzip -o sql_stock.zip -d projet
-          # Suppression forcée des répertoires du ZIP
+
+          # Suppression des répertoires indésirables
           find projet -name ".buildozer" -type d -exec rm -rf {} +
           find projet -name ".bin" -type d -exec rm -rf {} +
+
+          # Si le ZIP extrait un sous-dossier unique, remonter les fichiers
+          if [ $(ls -1 projet | wc -l) -eq 1 ] && [ -d projet/* ]; then
+            echo "Déplacement des fichiers depuis le sous-dossier extrait..."
+            mv projet/*/* projet/ 2>/dev/null || true
+          fi
+
+          # Garanti l'existence de main.py
+          cd projet
+          if [ ! -f "main.py" ]; then
+            ALT_MAIN=$(ls *.py 2>/dev/null | head -n 1)
+            if [ -n "$ALT_MAIN" ]; then
+              echo "Renommage de $ALT_MAIN en main.py"
+              mv "$ALT_MAIN" main.py
+            else
+              echo "ERREUR: Aucun fichier .py trouvé dans le projet!"
+              exit 1
+            fi
+          fi
+
 
       # ============================================================
       # 7. CRÉER BUILDOZER.SPEC
@@ -86,57 +115,67 @@ jobs:
         run: |
           buildozer init
 
+
       # ============================================================
-      # 8. CONFIGUREUR BUILDOZER
+      # 8. CONFIGURER BUILDOZER
       # ============================================================
       - name: Configurer Buildozer
         working-directory: projet
         run: |
+
           # Application
           sed -i 's/^title = .*/title = Gestion Vente/' buildozer.spec
           sed -i 's/^package.name = .*/package.name = gestionvente/' buildozer.spec
           sed -i 's/^package.domain = .*/package.domain = org.gestion/' buildozer.spec
+
           # DÉPENDANCES
           sed -i 's/^requirements = .*/requirements = hostpython3==3.11.0,python3==3.11.0,kivy/' buildozer.spec
+
           # Orientation & Fichiers
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
-          
-          # EXCLUSION DES FICHIERS TEMPORAIRES ET LONGS (Résout l'erreur tarfile / ValueError: name is too long)
-          sed -i 's/^source.exclude_patterns = .*/source.exclude_patterns = license, data\/ks\/*, .buildozer, .git, .github, bin, __pycache__, *.pyc/' buildozer.spec
 
-          # API Android, outils de compilation et NDK
+          # Exclure les tests inutiles pour alléger le package
+          sed -i 's/^# android.exclude_src = .*/android.exclude_src = tests, test, lib2to3\/tests/' buildozer.spec
+
+          # API Android, Build-Tools et NDK
           if grep -q '^android.api =' buildozer.spec; then
             sed -i 's/^android.api = .*/android.api = 33/' buildozer.spec
           else
             echo "android.api = 33" >> buildozer.spec
           fi
+
           if grep -q '^android.minapi =' buildozer.spec; then
             sed -i 's/^android.minapi = .*/android.minapi = 24/' buildozer.spec
           else
             echo "android.minapi = 24" >> buildozer.spec
           fi
+
           if grep -q '^android.ndk =' buildozer.spec; then
             sed -i 's/^android.ndk = .*/android.ndk = 25b/' buildozer.spec
           else
             echo "android.ndk = 25b" >> buildozer.spec
           fi
+
           if grep -q '^android.build_tools_version =' buildozer.spec; then
             sed -i 's/^android.build_tools_version = .*/android.build_tools_version = 33.0.2/' buildozer.spec
           else
             echo "android.build_tools_version = 33.0.2" >> buildozer.spec
           fi
+
           # Nettoyage p4a
           sed -i '/^p4a.url =/d' buildozer.spec
           sed -i '/^p4a.fork =/d' buildozer.spec
           sed -i '/^p4a.branch =/d' buildozer.spec
           sed -i '/^p4a.commit =/d' buildozer.spec
-          # Journaux
+
+          # Logs
           if grep -q '^log_level =' buildozer.spec; then
             sed -i 's/^log_level = .*/log_level = 2/' buildozer.spec
           else
             echo "log_level = 2" >> buildozer.spec
           fi
+
 
       # ============================================================
       # 9. PRÉPARER LE SDK ANDROID ET LES LICENCES
@@ -149,47 +188,62 @@ jobs:
           mkdir -p "$SDK_DIR/licenses"
           mkdir -p "$HOME/.android"
           touch "$HOME/.android/repositories.cfg"
-          # 1. Outils en ligne de commande
+
+          # 1. Commandline tools
           curl -sS -o cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
           unzip -q cmdline-tools.zip -d "$SDK_DIR/cmdline-tools"
           mv "$SDK_DIR/cmdline-tools/cmdline-tools" "$SDK_DIR/cmdline-tools/latest"
           rm cmdline-tools.zip
+
           # 2. Liens symboliques
           ln -sf "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" "$SDK_DIR/tools/bin/sdkmanager"
           ln -sf "$SDK_DIR/cmdline-tools/latest/bin/avdmanager" "$SDK_DIR/tools/bin/avdmanager"
+
           # 3. Licences
           LICENSES_CONTENT="\n89330d222637a000b01f7e9f4a3f656c78f4382f\nd56f5187479451eabf01fb78af6dfcb131a6481e\n2433373577d3e887a181e5a4af937d15d0433c50\ncd5010c71487d008b8b70f074d23258832a82390"
           PREVIEW_CONTENT="\n84831b94fe1430d75d55046884d77649db190779"
+
           echo -e "$LICENSES_CONTENT" > "$SDK_DIR/licenses/android-sdk-license"
           echo -e "$PREVIEW_CONTENT" > "$SDK_DIR/licenses/android-sdk-preview-license"
+
           # 4. Acceptation globale
           yes | "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" --licenses || true
-          # 5. Outils de construction de pré-installation
+
+          # 5. Pré-installation build-tools
           "$SDK_DIR/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_DIR" "platforms;android-33" "build-tools;33.0.2" "platform-tools"
 
+
       # ============================================================
-      # 10. COMPILATION APK (FORÇAGE DES CONTRAINTES PIP GLOBALE)
+      # 10. COMPILATION APK (AVEC CORRECTION DU FORMAT TAR)
       # ============================================================
-      - name: APK du compilateur
+      - name: Compiler APK
         working-directory: projet
         run: |
-          echo "===================================================="
-          echo "CRÉATION DES CONTRAINTES GLOBALES PIP"
-          echo "===================================================="
-          # Création d'un fichier de contraintes universel
+
+          echo "================================================="
+          echo "APPLICATION DU PATCH TARFILE (PAX FORMAT)"
+          echo "================================================="
+
+          # Patcher le module tarfile pour autoriser les chemins de fichiers longs (> 100 caracteres)
+          TARFILE_PY="/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/tarfile.py"
+          if [ -f "$TARFILE_PY" ]; then
+            sed -i 's/DEFAULT_FORMAT = GNU_FORMAT/DEFAULT_FORMAT = PAX_FORMAT/g' "$TARFILE_PY" || true
+          fi
+
           echo "pip<24.1" > /tmp/pip_constraints.txt
           echo "setuptools<70.0.0" >> /tmp/pip_constraints.txt
-          # Patch global de pythonforandroid dans l'environnement courant
-          PYTHON_LIB=$(python -c "import site; print(site.getsitepackages()[0])")
-          grep -rl "pip install" "$PYTHON_LIB" | xargs -r sed -i 's/pip install/pip install -c \/tmp\/pip_constraints.txt/g' || true
-          echo "===================================================="
+
+          echo "================================================="
           echo "DÉBUT DE LA COMPILATION APK"
-          echo "===================================================="
-          # PIP_CONSTRAINT force toutes les instances de pip créées ultérieurement à respecter cette règle
+          echo "================================================="
+
           export PIP_CONSTRAINT="/tmp/pip_constraints.txt"
+          export PIP_DISABLE_PIP_VERSION_CHECK="1"
           export ACLOCAL_PATH="/usr/share/aclocal:/usr/share/libtool/m4"
           export LIBTOOLIZE="libtoolize"
+
           buildozer -v android debug
+
 
       # ============================================================
       # 11. RÉCUPÉRER L'APK
