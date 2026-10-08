@@ -93,7 +93,7 @@ jobs:
             mv projet/*/* projet/ 2>/dev/null || true
           fi
 
-          # Garanti l'existence de main.py
+          # Garantir l'existence de main.py
           cd projet
           if [ ! -f "main.py" ]; then
             ALT_MAIN=$(ls *.py 2>/dev/null | head -n 1)
@@ -135,8 +135,8 @@ jobs:
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
 
-          # Exclure les tests inutiles pour alléger le package
-          sed -i 's/^# android.exclude_src = .*/android.exclude_src = tests, test, lib2to3\/tests/' buildozer.spec
+          # Exclure tous les dossiers de test et de documentation qui allongent les chemins
+          sed -i 's/^# android.exclude_src = .*/android.exclude_src = tests, test, lib2to3\/tests, doc, docs/' buildozer.spec
 
           # API Android, Build-Tools et NDK
           if grep -q '^android.api =' buildozer.spec; then
@@ -214,20 +214,30 @@ jobs:
 
 
       # ============================================================
-      # 10. COMPILATION APK (AVEC CORRECTION DU FORMAT TAR)
+      # 10. COMPILATION APK (PATCH SUR P4A + FORMAT PAX)
       # ============================================================
       - name: Compiler APK
         working-directory: projet
         run: |
 
           echo "================================================="
-          echo "APPLICATION DU PATCH TARFILE (PAX FORMAT)"
+          echo "PATCH DU CODE SOURCE DE PYTHON-FOR-ANDROID"
           echo "================================================="
 
-          # Patcher le module tarfile pour autoriser les chemins de fichiers longs (> 100 caracteres)
-          TARFILE_PY="/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/tarfile.py"
+          # 1. Patcher le module tarfile globalement
+          PYTHON_DIR=$(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+          TARFILE_PY=$(python -c "import tarfile; print(tarfile.__file__)")
           if [ -f "$TARFILE_PY" ]; then
-            sed -i 's/DEFAULT_FORMAT = GNU_FORMAT/DEFAULT_FORMAT = PAX_FORMAT/g' "$TARFILE_PY" || true
+            sudo sed -i 's/DEFAULT_FORMAT = GNU_FORMAT/DEFAULT_FORMAT = PAX_FORMAT/g' "$TARFILE_PY" || true
+            sudo sed -i 's/format=GNU_FORMAT/format=PAX_FORMAT/g' "$TARFILE_PY" || true
+          fi
+
+          # 2. Patcher pythonforandroid directement dans site-packages
+          P4A_DIR=$(python -c "import site; print(site.getsitepackages()[0])")/pythonforandroid
+          if [ -d "$P4A_DIR" ]; then
+            grep -rl "GNU_FORMAT" "$P4A_DIR" | xargs -r sed -i 's/GNU_FORMAT/PAX_FORMAT/g' || true
+            grep -rl "format=tarfile.GNU_FORMAT" "$P4A_DIR" | xargs -r sed -i 's/format=tarfile.GNU_FORMAT/format=tarfile.PAX_FORMAT/g' || true
+            grep -rl "tarfile.open(" "$P4A_DIR" | xargs -r sed -i 's/tarfile.open(/tarfile.open(format=tarfile.PAX_FORMAT, /g' || true
           fi
 
           echo "pip<24.1" > /tmp/pip_constraints.txt
