@@ -79,22 +79,22 @@ jobs:
       # ============================================================
       - name: Décompresser le projet et préparer main.py
         run: |
-          mkdir -p pg
+          mkdir -p projet
 
-          unzip -o sql_stock.zip -d pg
+          unzip -o sql_stock.zip -d projet
 
           # Suppression des répertoires indésirables
           find projet -name ".buildozer" -type d -exec rm -rf {} +
           find projet -name ".bin" -type d -exec rm -rf {} +
 
           # Si le ZIP extrait un sous-dossier unique, remonter les fichiers
-          if [ $(ls -1 pg | wc -l) -eq 1 ] && [ -d pg/* ]; then
+          if [ $(ls -1 projet | wc -l) -eq 1 ] && [ -d projet/* ]; then
             echo "Déplacement des fichiers depuis le sous-dossier extrait..."
-            mv pg/*/* pg/ 2>/dev/null || true
+            mv projet/*/* projet/ 2>/dev/null || true
           fi
 
           # Garantir l'existence de main.py
-          cd pg
+          cd projet
           if [ ! -f "main.py" ]; then
             ALT_MAIN=$(ls *.py 2>/dev/null | head -n 1)
             if [ -n "$ALT_MAIN" ]; then
@@ -111,7 +111,7 @@ jobs:
       # 7. CRÉER BUILDOZER.SPEC
       # ============================================================
       - name: Créer buildozer.spec
-        working-directory: pg
+        working-directory: projet
         run: |
           buildozer init
 
@@ -120,12 +120,12 @@ jobs:
       # 8. CONFIGURER BUILDOZER
       # ============================================================
       - name: Configurer Buildozer
-        working-directory: pg
+        working-directory: projet
         run: |
 
           # Application
           sed -i 's/^title = .*/title = Gestion Vente/' buildozer.spec
-          sed -i 's/^package.name = .*/package.name = gv/'buildozer.spec
+          sed -i 's/^package.name = .*/package.name = gestionvente/' buildozer.spec
           sed -i 's/^package.domain = .*/package.domain = org.gestion/' buildozer.spec
 
           # DÉPENDANCES
@@ -135,7 +135,7 @@ jobs:
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
 
-          # Exclure tous les dossiers de test et de documentation qui allongent les chemins
+          # Exclure tous les dossiers de test et de documentation qui allongent inutiles
           sed -i 's/^# android.exclude_src = .*/android.exclude_src = tests, test, lib2to3\/tests, doc, docs/' buildozer.spec
 
           # API Android, Build-Tools et NDK
@@ -214,32 +214,24 @@ jobs:
 
 
       # ============================================================
-      # 10. COMPILATION APK (PATCH SUR P4A + FORMAT PAX)
+      # 10. COMPILATION DANS UN RACCOURCI DE CHEMIN (/tmp/app)
       # ============================================================
-      - name: Compiler APK
-        working-directory: pg
+      - name: Compiler APK dans un chemin court
         run: |
 
           echo "================================================="
-          echo "PATCH DU CODE SOURCE DE PYTHON-FOR-ANDROID"
+          echo "DÉPLACEMENT DU PROJET DANS /tmp/app"
           echo "================================================="
 
-          # 1. Patcher le module tarfile globalement
-          PYTHON_DIR=$(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+          # 1. Copier le projet vers /tmp/app pour reduire la taille des chemins
+          cp -r projet /tmp/app
+          cd /tmp/app
+
+          # 2. Patch du module tarfile globalement
           TARFILE_PY=$(python -c "import tarfile; print(tarfile.__file__)")
-          if [ -f "$TARFILE_PY" ]; then
-            sudo sed -i 's/DEFAULT_FORMAT = GNU_FORMAT/DEFAULT_FORMAT = PAX_FORMAT/g' "$TARFILE_PY" || true
-            sudo sed -i 's/format=GNU_FORMAT/format=PAX_FORMAT/g' "$TARFILE_PY" || true
-          fi
+          sudo sed -i 's/DEFAULT_FORMAT = GNU_FORMAT/DEFAULT_FORMAT = PAX_FORMAT/g' "$TARFILE_PY" || true
 
-          # 2. Patcher pythonforandroid directement dans site-packages
-          P4A_DIR=$(python -c "import site; print(site.getsitepackages()[0])")/pythonforandroid
-          if [ -d "$P4A_DIR" ]; then
-            grep -rl "GNU_FORMAT" "$P4A_DIR" | xargs -r sed -i 's/GNU_FORMAT/PAX_FORMAT/g' || true
-            grep -rl "format=tarfile.GNU_FORMAT" "$P4A_DIR" | xargs -r sed -i 's/format=tarfile.GNU_FORMAT/format=tarfile.PAX_FORMAT/g' || true
-            grep -rl "tarfile.open(" "$P4A_DIR" | xargs -r sed -i 's/tarfile.open(/tarfile.open(format=tarfile.PAX_FORMAT, /g' || true
-          fi
-
+          # 3. Fichier de contrainte Pip
           echo "pip<24.1" > /tmp/pip_constraints.txt
           echo "setuptools<70.0.0" >> /tmp/pip_constraints.txt
 
@@ -252,7 +244,12 @@ jobs:
           export ACLOCAL_PATH="/usr/share/aclocal:/usr/share/libtool/m4"
           export LIBTOOLIZE="libtoolize"
 
+          # 4. Compilation Buildozer
           buildozer -v android debug
+
+          # 5. Rapatrier l'APK généré vers le workspace principal pour l'upload d'artifact
+          mkdir -p $GITHUB_WORKSPACE/projet/bin
+          cp -r bin/*.apk $GITHUB_WORKSPACE/projet/bin/ 2>/dev/null || true
 
 
       # ============================================================
@@ -263,6 +260,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gestion-vente-apk
-          path: pg/bin/*.apk
+          path: projet/bin/*.apk
           if-no-files-found: error
           
