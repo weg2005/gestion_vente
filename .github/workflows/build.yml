@@ -214,25 +214,24 @@ jobs:
 
 
       # ============================================================
-      # 10. COMPILATION DANS UN CHEMIN ultra-COURT (/tmp/a)
+      # 10. COMPILATION APK (PATCH SUR SYSTEM TARFILE)
       # ============================================================
       - name: Compiler APK
         run: |
 
-          # 1. Raccourcissement extrême du chemin d'exécution (/tmp/a)
-          # Cela réduit la longueur du chemin racine de 70 caractères à seulement 6 caractères !
           mkdir -p /tmp/a
           cp -r projet/* /tmp/a/
           cd /tmp/a
 
-          # 2. Patch direct du code pythonforandroid (remplacement explicite des appels TarFile)
-          P4A_DIR=$(python -c "import site; print(site.getsitepackages()[0])")/pythonforandroid
-          if [ -d "$P4A_DIR" ]; then
-            find "$P4A_DIR" -type f -name "*.py" -exec sed -i 's/tarfile.open(\(.*\))/tarfile.open(\1, format=tarfile.PAX_FORMAT)/g' {} +
-            find "$P4A_DIR" -type f -name "*.py" -exec sed -i 's/TarFile(\(.*\))/TarFile(\1, format=tarfile.PAX_FORMAT)/g' {} +
-          fi
+          echo "================================================="
+          echo "PATCH CHIRURGICAL DU MODULE TARFILE PYTHON"
+          echo "================================================="
 
-          # 3. Fichier de contraintes Pip
+          # Neutralisation directe de l'exception "name is too long" dans tarfile.py
+          TARFILE_PY=$(python -c "import tarfile; print(tarfile.__file__)")
+          sudo sed -i 's/raise ValueError("name is too long")/return self.create_pax_header(info, encoding, errors)/g' "$TARFILE_PY" || true
+
+          # Fichier de contraintes Pip
           echo "pip<24.1" > /tmp/pip_constraints.txt
           echo "setuptools<70.0.0" >> /tmp/pip_constraints.txt
 
@@ -248,7 +247,7 @@ jobs:
           # Compilation dans /tmp/a
           buildozer -v android debug
 
-          # Rapatriement de l'APK généré vers le workspace principal pour l'upload
+          # Rapatriement de l'APK généré vers le workspace principal
           mkdir -p $GITHUB_WORKSPACE/projet/bin
           cp -r bin/*.apk $GITHUB_WORKSPACE/projet/bin/ 2>/dev/null || true
 
@@ -263,4 +262,3 @@ jobs:
           name: gestion-vente-apk
           path: projet/bin/*.apk
           if-no-files-found: error
-          
