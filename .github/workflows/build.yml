@@ -135,7 +135,7 @@ jobs:
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
 
-          # Exclure tous les dossiers de test et de documentation qui allongent inutiles
+          # Exclure tous les dossiers de test et de documentation inutiles
           sed -i 's/^# android.exclude_src = .*/android.exclude_src = tests, test, lib2to3\/tests, doc, docs/' buildozer.spec
 
           # API Android, Build-Tools et NDK
@@ -214,24 +214,25 @@ jobs:
 
 
       # ============================================================
-      # 10. COMPILATION DANS UN RACCOURCI DE CHEMIN (/tmp/app)
+      # 10. COMPILATION DANS UN CHEMIN ultra-COURT (/tmp/a)
       # ============================================================
-      - name: Compiler APK dans un chemin court
+      - name: Compiler APK
         run: |
 
-          echo "================================================="
-          echo "DÉPLACEMENT DU PROJET DANS /tmp/app"
-          echo "================================================="
+          # 1. Raccourcissement extrême du chemin d'exécution (/tmp/a)
+          # Cela réduit la longueur du chemin racine de 70 caractères à seulement 6 caractères !
+          mkdir -p /tmp/a
+          cp -r projet/* /tmp/a/
+          cd /tmp/a
 
-          # 1. Copier le projet vers /tmp/app pour reduire la taille des chemins
-          cp -r projet /tmp/app
-          cd /tmp/app
+          # 2. Patch direct du code pythonforandroid (remplacement explicite des appels TarFile)
+          P4A_DIR=$(python -c "import site; print(site.getsitepackages()[0])")/pythonforandroid
+          if [ -d "$P4A_DIR" ]; then
+            find "$P4A_DIR" -type f -name "*.py" -exec sed -i 's/tarfile.open(\(.*\))/tarfile.open(\1, format=tarfile.PAX_FORMAT)/g' {} +
+            find "$P4A_DIR" -type f -name "*.py" -exec sed -i 's/TarFile(\(.*\))/TarFile(\1, format=tarfile.PAX_FORMAT)/g' {} +
+          fi
 
-          # 2. Patch du module tarfile globalement
-          TARFILE_PY=$(python -c "import tarfile; print(tarfile.__file__)")
-          sudo sed -i 's/DEFAULT_FORMAT = GNU_FORMAT/DEFAULT_FORMAT = PAX_FORMAT/g' "$TARFILE_PY" || true
-
-          # 3. Fichier de contrainte Pip
+          # 3. Fichier de contraintes Pip
           echo "pip<24.1" > /tmp/pip_constraints.txt
           echo "setuptools<70.0.0" >> /tmp/pip_constraints.txt
 
@@ -244,10 +245,10 @@ jobs:
           export ACLOCAL_PATH="/usr/share/aclocal:/usr/share/libtool/m4"
           export LIBTOOLIZE="libtoolize"
 
-          # 4. Compilation Buildozer
+          # Compilation dans /tmp/a
           buildozer -v android debug
 
-          # 5. Rapatrier l'APK généré vers le workspace principal pour l'upload d'artifact
+          # Rapatriement de l'APK généré vers le workspace principal pour l'upload
           mkdir -p $GITHUB_WORKSPACE/projet/bin
           cp -r bin/*.apk $GITHUB_WORKSPACE/projet/bin/ 2>/dev/null || true
 
