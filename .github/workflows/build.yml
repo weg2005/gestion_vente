@@ -93,6 +93,17 @@ jobs:
             mv projet/*/* projet/ 2>/dev/null || true
           fi
 
+          # Création du fichier .buildozer.ignore
+          cat << 'EOF' > projet/.buildozer.ignore
+          .git/
+          .github/
+          .venv/
+          venv/
+          __pycache__/
+          .buildozer/
+          bin/
+          EOF
+
           # Garantir l'existence de main.py
           cd projet
           if [ ! -f "main.py" ]; then
@@ -135,7 +146,13 @@ jobs:
           sed -i 's/^orientation = .*/orientation = portrait/' buildozer.spec
           sed -i 's/^source.include_exts = .*/source.include_exts = py,png,jpg,jpeg,kv,atlas,db,ttf,txt/' buildozer.spec
 
-          # Exclure tous les dossiers de test et de documentation inutiles
+          # Exclusion des dossiers lourds et inutiles
+          if grep -q '^source.exclude_dirs =' buildozer.spec; then
+            sed -i 's/^source.exclude_dirs = .*/source.exclude_dirs = tests, test, bin, .venv, venv, .git, .github, __pycache__/' buildozer.spec
+          else
+            echo "source.exclude_dirs = tests, test, bin, .venv, venv, .git, .github, __pycache__" >> buildozer.spec
+          fi
+
           sed -i 's/^# android.exclude_src = .*/android.exclude_src = tests, test, lib2to3\/tests, doc, docs/' buildozer.spec
 
           # API Android, Build-Tools et NDK
@@ -224,12 +241,12 @@ jobs:
           cd /tmp/a
 
           echo "================================================="
-          echo "PATCH CHIRURGICAL DU MODULE TARFILE PYTHON"
+          echo "PATCH DU MODULE TARFILE PYTHON (FORMAT PAX)"
           echo "================================================="
 
-          # Neutralisation directe de l'exception "name is too long" dans tarfile.py
+          # Configuration du format PAX par défaut dans tarfile pour gérer les chemins longs
           TARFILE_PY=$(python -c "import tarfile; print(tarfile.__file__)")
-          sudo sed -i 's/raise ValueError("name is too long")/return self.create_pax_header(info, encoding, errors)/g' "$TARFILE_PY" || true
+          sudo sed -i 's/DEFAULT_FORMAT = USTAR_FORMAT/DEFAULT_FORMAT = PAX_FORMAT/g' "$TARFILE_PY"
 
           # Fichier de contraintes Pip
           echo "pip<24.1" > /tmp/pip_constraints.txt
@@ -262,3 +279,4 @@ jobs:
           name: gestion-vente-apk
           path: projet/bin/*.apk
           if-no-files-found: error
+          
