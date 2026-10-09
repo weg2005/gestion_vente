@@ -125,7 +125,7 @@ jobs:
 
           # Application
           sed -i 's/^title = .*/title = Gestion Vente/' buildozer.spec
-          sed -i 's/^package.name = .*/package.name = gestionvente/' buildozer.spec
+          sed -i 's/^package.name = .*/package.name = gv/'buildozer.spec
           sed -i 's/^package.domain = .*/package.domain = org.gestion/' buildozer.spec
 
           # DÉPENDANCES
