@@ -120,7 +120,7 @@ jobs:
       # 8. CONFIGURER BUILDOZER
       # ============================================================
       - name: Configurer Buildozer
-        working-directory: projet
+        working-directory: main.py
         run: |
 
           # Application
