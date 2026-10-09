@@ -79,22 +79,22 @@ jobs:
       # ============================================================
       - name: Décompresser le projet et préparer main.py
         run: |
-          mkdir -p projet
+          mkdir -p pg
 
-          unzip -o sql_stock.zip -d projet
+          unzip -o sql_stock.zip -d pg
 
           # Suppression des répertoires indésirables
           find projet -name ".buildozer" -type d -exec rm -rf {} +
           find projet -name ".bin" -type d -exec rm -rf {} +
 
           # Si le ZIP extrait un sous-dossier unique, remonter les fichiers
-          if [ $(ls -1 projet | wc -l) -eq 1 ] && [ -d projet/* ]; then
+          if [ $(ls -1 pg | wc -l) -eq 1 ] && [ -d pg/* ]; then
             echo "Déplacement des fichiers depuis le sous-dossier extrait..."
-            mv projet/*/* projet/ 2>/dev/null || true
+            mv pg/*/* pg/ 2>/dev/null || true
           fi
 
           # Garantir l'existence de main.py
-          cd projet
+          cd pg
           if [ ! -f "main.py" ]; then
             ALT_MAIN=$(ls *.py 2>/dev/null | head -n 1)
             if [ -n "$ALT_MAIN" ]; then
@@ -111,7 +111,7 @@ jobs:
       # 7. CRÉER BUILDOZER.SPEC
       # ============================================================
       - name: Créer buildozer.spec
-        working-directory: projet
+        working-directory: pg
         run: |
           buildozer init
 
@@ -120,7 +120,7 @@ jobs:
       # 8. CONFIGURER BUILDOZER
       # ============================================================
       - name: Configurer Buildozer
-        working-directory: main.py
+        working-directory: pg
         run: |
 
           # Application
@@ -217,7 +217,7 @@ jobs:
       # 10. COMPILATION APK (PATCH SUR P4A + FORMAT PAX)
       # ============================================================
       - name: Compiler APK
-        working-directory: projet
+        working-directory: pg
         run: |
 
           echo "================================================="
@@ -263,6 +263,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: gestion-vente-apk
-          path: projet/bin/*.apk
+          path: pg/bin/*.apk
           if-no-files-found: error
           
