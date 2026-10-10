@@ -214,7 +214,7 @@ jobs:
 
 
       # ============================================================
-      # 10. COMPILATION AVEC HOOK UNIVERSEL DE TARFILE (.pth)
+      # 10. COMPILATION AVEC VEILLEUR TEMPS RÉEL SUR BUILD.PY
       # ============================================================
       - name: Compiler APK
         run: |
@@ -223,21 +223,23 @@ jobs:
           cd /tmp/a
 
           echo "================================================="
-          echo "INSTALLATION DU HOOK GLOBAL POUR TARFILE"
+          echo "LANCEMENT DU SENTINELLE DE SURVEILLANCE BUILD.PY"
           echo "================================================="
 
-          # Création propre du fichier .pth sans conflit YAML
-          sudo python -c "
-          import site, pathlib
-          pth_file = pathlib.Path(site.getsitepackages()[0]) / 'fix_tarfile.pth'
-          pth_file.write_text('''import tarfile
-          _orig_init = tarfile.TarFile.__init__
-          def _new_init(self, *args, **kwargs):
-              kwargs['format'] = tarfile.PAX_FORMAT
-              _orig_init(self, *args, **kwargs)
-          tarfile.TarFile.__init__ = _new_init
-          ''')
-          "
+          # Script en arrière-plan qui intercepte et patche instantanément build.py dès sa création
+          (
+            while true; do
+              for f in $(find /tmp/a -name "build.py" 2>/dev/null); do
+                if [ -f "$f" ] && ! grep -q "PAX_FORMAT" "$f"; then
+                  sed -i 's/tarfile.open(/tarfile.open(format=tarfile.PAX_FORMAT, /g' "$f" || true
+                  sed -i '1i import tarfile; tarfile.DEFAULT_FORMAT = tarfile.PAX_FORMAT' "$f" || true
+                  echo ">>> [SENTINelle] build.py intercepté et patché avec succès !"
+                fi
+              done
+              sleep 0.2
+            done
+          ) &
+          SENTINEL_PID=$!
 
           # Fichier de contraintes Pip
           echo "pip<24.1" > /tmp/pip_constraints.txt
@@ -253,7 +255,14 @@ jobs:
           export LIBTOOLIZE="libtoolize"
 
           # Compilation dans /tmp/a
-          buildozer -v android debug
+          buildozer -v android debug || EXIT_CODE=$?
+
+          # Arrêt du sentinelle
+          kill $SENTINEL_PID 2>/dev/null || true
+
+          if [ ${EXIT_CODE:-0} -ne 0 ]; then
+            exit $EXIT_CODE
+          fi
 
           # Rapatriement de l'APK généré vers le workspace principal
           mkdir -p $GITHUB_WORKSPACE/projet/bin
@@ -270,4 +279,4 @@ jobs:
           name: gestion-vente-apk
           path: projet/bin/*.apk
           if-no-files-found: error
-        
+          
