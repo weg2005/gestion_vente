@@ -218,7 +218,6 @@ jobs:
       # ============================================================
       - name: Compiler APK
         run: |
-
           mkdir -p /tmp/a
           cp -r projet/* /tmp/a/
           cd /tmp/a
@@ -227,16 +226,18 @@ jobs:
           echo "INSTALLATION DU HOOK GLOBAL POUR TARFILE"
           echo "================================================="
 
-          # Création d'un fichier .pth dans site-packages pour forcer PAX_FORMAT partout
-          PYTHON_LIB=$(python -c "import site; print(site.getsitepackages()[0])")
-          sudo tee "$PYTHON_LIB/fix_tarfile.pth" > /dev/null << 'EOF'
-import tarfile
-_orig_init = tarfile.TarFile.__init__
-def _new_init(self, *args, **kwargs):
-    kwargs['format'] = tarfile.PAX_FORMAT
-    _orig_init(self, *args, **kwargs)
-tarfile.TarFile.__init__ = _new_init
-EOF
+          # Création propre du fichier .pth sans conflit YAML
+          sudo python -c "
+          import site, pathlib
+          pth_file = pathlib.Path(site.getsitepackages()[0]) / 'fix_tarfile.pth'
+          pth_file.write_text('''import tarfile
+          _orig_init = tarfile.TarFile.__init__
+          def _new_init(self, *args, **kwargs):
+              kwargs['format'] = tarfile.PAX_FORMAT
+              _orig_init(self, *args, **kwargs)
+          tarfile.TarFile.__init__ = _new_init
+          ''')
+          "
 
           # Fichier de contraintes Pip
           echo "pip<24.1" > /tmp/pip_constraints.txt
@@ -269,4 +270,4 @@ EOF
           name: gestion-vente-apk
           path: projet/bin/*.apk
           if-no-files-found: error
-          
+        
